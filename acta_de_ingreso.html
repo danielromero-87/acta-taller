@@ -490,37 +490,16 @@
             const scriptUrl = 'https://script.google.com/macros/s/AKfycbyyltZ_D1my0Rw9-QKPh08PAiHj9UcBcJqlLf6JeGUx4f4o3bssMEIzSjBNfNBPEe6h/exec';
 
             try {
-                // **MODIFICATION START**
-                // Removed 'no-cors' to allow proper communication with the script.
                 const response = await fetch(scriptUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    method: 'POST', 
+                    mode: 'no-cors', 
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(formData)
                 });
-
-                if (response.ok) {
-                    const result = await response.json();
-                    if (result.status === 'success') {
-                        alert('Formulario enviado con éxito. Se ha enviado una confirmación a su correo.');
-                        // Optionally, reset the form here
-                        // window.location.reload();
-                    } else {
-                        // The script returned an error.
-                        console.error('Error del script:', result.message);
-                        alert('Hubo un error en el servidor al procesar el formulario: ' + result.message);
-                    }
-                } else {
-                    // The server responded with an HTTP error status (e.g., 404, 500)
-                    console.error('Error de red o del servidor:', response.status, response.statusText);
-                    alert('No se pudo comunicar con el servidor. Código de error: ' + response.status);
-                }
-                // **MODIFICATION END**
+                alert('Formulario enviado con éxito.');
             } catch (error) {
-                // This catches client-side network errors (e.g., no internet)
                 console.error('Error al enviar el formulario:', error);
-                alert('Hubo un error de red al enviar el formulario. Revise su conexión a internet.');
+                alert('Hubo un error al enviar el formulario.');
             } finally {
                 sendButton.textContent = 'Enviar';
                 sendButton.disabled = false;
