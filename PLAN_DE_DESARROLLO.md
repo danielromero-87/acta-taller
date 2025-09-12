@@ -77,3 +77,9 @@ Reconstruir desde cero la funcionalidad del "Acta de Ingreso" para asegurar que 
 - **Causa:** Al redesplegar el Google Apps Script, se generó una nueva URL que no se había reflejado en el archivo HTML.
 - **Solución:** Se actualizó la `scriptUrl` en `acta_de_ingreso.html` para que apunte al despliegue más reciente del script.
 - **Estado:** Completado.
+
+### 6.4 Extracción de Notas del Diagrama
+- **Problema:** La columna `diagramaNotas` en Google Sheets mostraba el JSON completo en lugar de solo el texto de las notas.
+- **Causa:** El Google Apps Script estaba guardando la cadena JSON directamente.
+- **Solución:** Se modificó la función `doPost` en el Google Apps Script para parsear la cadena JSON de `diagramaNotas` y extraer únicamente los valores de `noteText`, uniéndolos en una sola cadena para su almacenamiento en Google Sheets y su uso en el PDF.
+- **Estado:** Completado.
