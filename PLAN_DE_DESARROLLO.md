@@ -56,3 +56,24 @@ Reconstruir desde cero la funcionalidad del "Acta de Ingreso" para asegurar que 
 ### 5.1 Commit Final
 - **Acción:** Una vez validado el funcionamiento, realizar un `commit` final para documentar la versión estable.
 - **Estado:** Pendiente.
+---
+
+## Fase 6: Correcciones y Mejoras
+
+### 6.1 Corrección de Firma en Tablets
+- **Problema:** La funcionalidad de la firma no respondía en dispositivos táctiles (tablets).
+- **Causa:** El código solo estaba programado para eventos de ratón (`mousedown`, `mousemove`) y no para eventos táctiles (`touchstart`, `touchmove`).
+- **Solución:** Se modificó el archivo `acta_de_ingreso.html` para añadir los listeners de eventos táctiles necesarios, asegurando que la funcionalidad de dibujo en el canvas sea compatible tanto con ratón como con pantallas táctiles.
+- **Estado:** Completado.
+
+### 6.2 Corrección de Guardado de Datos en Google Sheets
+- **Problema:** No todos los datos del formulario se estaban guardando en la hoja de cálculo de Google.
+- **Causa:** El código del Google Apps Script no incluía todos los campos del formulario al momento de crear la nueva fila en el documento.
+- **Solución:** Se actualizó la función `doPost` en el Google Apps Script para que el array `newRowData` contenga todos los campos enviados desde el formulario, incluyendo el inventario completo, estado del vehículo, fechas y notas.
+- **Estado:** Completado.
+
+### 6.3 Actualización de URL del Script
+- **Problema:** El archivo `acta_de_ingreso.html` apuntaba a una URL de script desactualizada.
+- **Causa:** Al redesplegar el Google Apps Script, se generó una nueva URL que no se había reflejado en el archivo HTML.
+- **Solución:** Se actualizó la `scriptUrl` en `acta_de_ingreso.html` para que apunte al despliegue más reciente del script.
+- **Estado:** Completado.

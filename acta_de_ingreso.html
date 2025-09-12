@@ -416,24 +416,44 @@
         ctx.lineWidth = 2;
         ctx.lineCap = 'round';
         ctx.strokeStyle = 'black';
-        function getMousePos(canvas, evt) {
+
+        function getPos(canvas, evt) {
             const rect = canvas.getBoundingClientRect();
-            return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
+            const source = evt.touches ? evt.touches[0] : evt;
+            return { x: source.clientX - rect.left, y: source.clientY - rect.top };
         }
-        canvas.addEventListener('mousedown', (e) => {
+
+        function startDrawing(e) {
             drawing = true;
-            const pos = getMousePos(canvas, e);
+            const pos = getPos(canvas, e);
             ctx.beginPath();
             ctx.moveTo(pos.x, pos.y);
-        });
-        canvas.addEventListener('mousemove', (e) => {
+            e.preventDefault();
+        }
+
+        function draw(e) {
             if (!drawing) return;
-            const pos = getMousePos(canvas, e);
+            const pos = getPos(canvas, e);
             ctx.lineTo(pos.x, pos.y);
             ctx.stroke();
-        });
-        canvas.addEventListener('mouseup', () => { drawing = false; ctx.closePath(); });
-        canvas.addEventListener('mouseout', () => { if (drawing) { drawing = false; ctx.closePath(); } });
+            e.preventDefault();
+        }
+
+        function stopDrawing() {
+            drawing = false;
+            ctx.closePath();
+        }
+
+        // Mouse events
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
+
+        // Touch events
+        canvas.addEventListener('touchstart', startDrawing);
+        canvas.addEventListener('touchmove', draw);
+        canvas.addEventListener('touchend', stopDrawing);
     });
 
     function clearSignature(canvasId) {
@@ -487,7 +507,7 @@
                 }
             });
 
-            const scriptUrl = 'https://script.google.com/macros/s/AKfycbwOQR-WxD4fyP5GqKd16mD9UNXXUqhzY5ZfPoG0SOtwawzxTXe4InnHVzQjeIlgLc3x/exec';
+            const scriptUrl = 'https://script.google.com/macros/s/AKfycby9Kb_Ot1Ss9WQbPT7dUiTjic3cg-84HXjynL3y1Jt9b7nTUgiocxYZnxjqHSmzW2A/exec';
 
             try {
                 const response = await fetch(scriptUrl, {
