@@ -83,3 +83,12 @@ Reconstruir desde cero la funcionalidad del "Acta de Ingreso" para asegurar que 
 - **Causa:** El Google Apps Script estaba guardando la cadena JSON directamente.
 - **Solución:** Se modificó la función `doPost` en el Google Apps Script para parsear la cadena JSON de `diagramaNotas` y extraer únicamente los valores de `noteText`, uniéndolos en una sola cadena para su almacenamiento en Google Sheets y su uso en el PDF.
 - **Estado:** Completado.
+
+---
+
+## Fase 7: Documentación
+
+### 7.1 Creación de Documentación del Proyecto
+- **Acción:** Analizar el código y la funcionalidad completa del sistema (ingreso y entrega) para crear una documentación técnica y de usuario.
+- **Entregables:** Se crearon los archivos `README.md` y `DOCUMENTACION.md` con la misma información detallada sobre la introducción, tecnologías, funcionamiento y control de versiones.
+- **Estado:** Completado.
