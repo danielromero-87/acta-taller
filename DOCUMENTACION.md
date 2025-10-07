@@ -7,7 +7,7 @@ Este proyecto es un sistema de gestión de vehículos para el taller de servicio
 El sistema se compone de dos formularios web principales:
 
 1.  **Acta de Ingreso**: Permite documentar de forma exhaustiva el estado de un vehículo cuando llega al taller. Registra datos del propietario, información del vehículo, un inventario de los objetos presentes y, de manera crucial, un diagrama interactivo para señalar con precisión cualquier daño preexistente (golpes, rayones).
-2.  **Acta de Entrega**: Facilita el registro de todos los servicios realizados en el vehículo. Al finalizar, genera un acta formal en PDF que se envía automáticamente por correo electrónico al cliente, documentando el trabajo hecho y el estado del vehículo a la entrega.
+2.  **Acta de Entrega**: Facilita el registro de todos los servicios realizados en el vehículo y la conformidad del cliente al retirarlo del taller. Actualmente ambos formularios conviven dentro de un único HTML (`taller-actas-87.html`) que permite cambiar entre ellos mediante un selector.
 
 El propósito es mejorar la transparencia con el cliente, crear un registro digital robusto para la trazabilidad y agilizar la comunicación y la entrega de documentos.
 
@@ -16,12 +16,12 @@ El propósito es mejorar la transparencia con el cliente, crear un registro digi
 El sistema está construido con tecnologías web estándar y aprovecha el ecosistema de Google para el backend, lo que lo hace robusto y de bajo costo.
 
 *   **Frontend**:
-    *   **HTML5**: Para la estructura de los formularios.
-    *   **CSS3**: Para el diseño y la presentación, utilizando Google Fonts (Poppins) para la tipografía.
-    *   **JavaScript (Vanilla JS)**: Para toda la lógica del lado del cliente, incluyendo la interactividad de los formularios, la manipulación del DOM, la creación de los diagramas de daños con SVG y la captura de firmas digitales en elementos `<canvas>`. No se utilizan frameworks externos como React o Angular.
+    *   **HTML5**: Toda la interfaz se entrega desde `taller-actas-87.html`, que alberga ambos formularios y la lógica de cambio entre ellos.
+    *   **CSS3**: Para el diseño y la presentación, utilizando Google Fonts (Poppins) para la tipografía y estilos responsive que permiten operar desde dispositivos móviles.
+    *   **JavaScript (Vanilla JS)**: Para toda la lógica del lado del cliente, incluyendo el selector de formularios, la interactividad de cada flujo, la manipulación del DOM, la creación de los diagramas de daños con SVG y la captura de firmas digitales en elementos `<canvas>`. No se utilizan frameworks externos como React o Angular.
 
 *   **Backend**:
-    *   **Google Apps Script**: Funciona como el cerebro del sistema. Dos scripts separados (desplegados como aplicaciones web) reciben los datos de los formularios de ingreso y entrega para procesarlos.
+    *   **Google Apps Script**: Un único endpoint (`Code.gs`) despliega la aplicación web y decide en qué pestaña del Google Sheets guardar cada envío según el `tipoFormulario` recibido (`ingreso` o `entrega`).
 
 *   **Base de Datos**:
     *   **Google Sheets**: Actúa como la base de datos del sistema. Cada envío de formulario (tanto de ingreso como de entrega) se guarda como una nueva fila en una hoja de cálculo de Google, permitiendo un fácil acceso y gestión de los registros.
@@ -39,38 +39,31 @@ El flujo de trabajo del sistema se divide en dos procesos principales: el ingres
 
 ### Frontend (Lo que pasa en el navegador)
 
-1.  **Flujo de Ingreso (`acta_de_ingreso.html`)**:
+1.  **Flujo de Ingreso (`taller-actas-87.html`, sección Ingreso)**:
     *   Un técnico del taller abre este formulario en un navegador.
     *   Rellena la información del propietario y del vehículo.
     *   Realiza un inventario marcando casillas de verificación para los elementos presentes en el coche (gato, herramientas, etc.).
     *   Utiliza el **diagrama de vehículo interactivo**: hace clic en la imagen del coche para marcar la ubicación de cualquier daño. Escribe una descripción del daño (ej. "Rayón profundo"), y la nota aparece a un lado, conectada por una línea al punto exacto del clic.
     *   Describe la falla reportada por el cliente o el trabajo a realizar.
     *   El cliente y el técnico firman digitalmente en los recuadros de firma (`<canvas>`).
-    *   Al pulsar "Enviar", el JavaScript del navegador recopila todos los datos (incluyendo las notas del diagrama como un texto JSON y las firmas como imágenes Base64) y los envía al backend de Google Apps Script.
+    *   Al pulsar "Enviar", el JavaScript del navegador recopila todos los datos (incluyendo las notas del diagrama como un texto JSON y las firmas como imágenes Base64) y los envía al backend único de Google Apps Script junto con `tipoFormulario: "ingreso"`.
 
-2.  **Flujo de Entrega (`Acta de Entrega.html`)**:
+2.  **Flujo de Entrega (`taller-actas-87.html`, sección Entrega)**:
     *   Cuando el trabajo ha finalizado, el técnico abre este segundo formulario.
     *   Rellena los datos del cliente y del vehículo.
     *   Selecciona los servicios que se realizaron de una lista de categorías dinámicas. Los servicios seleccionados aparecen como "etiquetas" para una fácil visualización.
     *   Añade observaciones finales sobre el servicio.
     *   El cliente y el técnico vuelven a firmar para confirmar la entrega y la conformidad.
-    *   Al pulsar "Enviar", JavaScript recopila toda la información y la envía a un segundo endpoint de Google Apps Script, dedicado al proceso de entrega.
+    *   Al pulsar "Enviar", JavaScript recopila toda la información y la envía al mismo endpoint de Google Apps Script con `tipoFormulario: "entrega"`.
 
 ### Backend (Lo que pasa en el servidor de Google)
 
-1.  **Proceso de Ingreso**:
-    *   El script de Google Apps Script correspondiente al ingreso recibe la petición `POST` con los datos del formulario.
-    *   Decodifica las firmas en Base64 y las guarda como archivos de imagen PNG en una carpeta específica de Google Drive ("Firmas_Actas_Ingreso").
-    *   Añade una nueva fila a la hoja de cálculo de "Ingresos" en Google Sheets con toda la información: datos del cliente, del vehículo, inventario, el JSON de las notas del diagrama y las URLs a las imágenes de las firmas guardadas.
-    *   De forma similar al proceso de entrega, genera un PDF a partir de una plantilla de Google Docs y lo envía por correo al cliente como confirmación.
-
-2.  **Proceso de Entrega**:
-    *   El segundo script de Google Apps Script recibe los datos del formulario de entrega.
-    *   También guarda las firmas de entrega en la carpeta de Google Drive.
-    *   Añade una nueva fila a la hoja de cálculo de "Entregas" en Google Sheets.
-    *   **Generación de PDF**: El script abre una plantilla predefinida de Google Docs, reemplaza los marcadores de posición (ej. `{{clientName}}`, `{{vehiclePlate}}`) con los datos del formulario, e incluso inserta las imágenes de las firmas directamente en el documento.
-    *   **Envío de Correo**: Convierte el documento finalizado a formato PDF, le asigna un nombre (ej. `Acta_Entrega_PLACA123.pdf`) y lo envía automáticamente por correo electrónico al cliente, adjuntando el PDF.
-    *   Finalmente, elimina la copia temporal del documento de Google Docs para mantener limpio el Drive.
+1.  **Proceso unificado (`Code.gs`)**:
+    *   El script de Google Apps Script recibe la petición `POST` con los datos serializados en JSON.
+    *   Analiza el `tipoFormulario` para identificar si el envío corresponde al ingreso o a la entrega y selecciona la pestaña "Actas_Ingreso" o "Actas_Entrega" dentro del mismo Google Sheets.
+    *   Si la pestaña no existe, la crea dinámicamente y escribe los encabezados con las claves recibidas.
+    *   Garantiza que todas las columnas de la hoja contengan los encabezados necesarios, agregando columnas nuevas cuando el frontend envía campos adicionales.
+    *   Adjunta un `timestamp` y agrega la fila al final de la hoja. En esta fase todavía no se procesan firmas ni se generan PDFs; el código está preparado para extenderse con esas funciones más adelante si se requiere.
 
 ## 4. Control de Versiones con Git
 
@@ -99,3 +92,10 @@ Para gestionar el código de este proyecto y subirlo a un repositorio en GitHub,
     git push origin main
     ```
     Este comando sube la rama local (`main`) al repositorio remoto configurado como `origin` (que normalmente es GitHub).
+
+## 5. Estado actual y archivos clave
+
+*   **HTML unificado**: `taller-actas-87.html` contiene la página completa con ambos formularios, los estilos responsive y toda la lógica JavaScript del frontend.
+*   **Backend Apps Script**: `Code.gs` implementa la función `doPost(e)` que orquesta el guardado en las hojas `Actas_Ingreso` y `Actas_Entrega`.
+*   **Diagramas y firmas**: El diagrama del vehículo usa un `<map>` actualizado con zonas interactivas y el almacenamiento de firmas se realiza en `<canvas>` dentro del mismo HTML.
+*   **Último commit de referencia**: `9a083d0 docs: registrar estado tras unificacion`. El commit anterior clave fue `92a95e5 feat: integrar actas en pagina unificada`.
