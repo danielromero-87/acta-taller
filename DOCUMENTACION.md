@@ -98,4 +98,4 @@ Para gestionar el código de este proyecto y subirlo a un repositorio en GitHub,
 *   **HTML unificado**: `taller-actas-87.html` contiene la página completa con ambos formularios, los estilos responsive y toda la lógica JavaScript del frontend.
 *   **Backend Apps Script**: `Code.gs` implementa la función `doPost(e)` que orquesta el guardado en las hojas `Actas_Ingreso` y `Actas_Entrega`.
 *   **Diagramas y firmas**: El diagrama del vehículo usa un `<map>` actualizado con zonas interactivas y el almacenamiento de firmas se realiza en `<canvas>` dentro del mismo HTML.
-*   **Último commit de referencia**: `9a083d0 docs: registrar estado tras unificacion`. El commit anterior clave fue `92a95e5 feat: integrar actas en pagina unificada`.
+*   **Último commit de referencia**: `docs: registrar estado tras unificacion` (consulta `git log -1 --oneline` para obtener el hash exacto). El commit anterior clave fue `92a95e5 feat: integrar actas en pagina unificada`.
