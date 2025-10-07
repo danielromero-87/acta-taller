@@ -1,0 +1,1469 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Actas - 8/7 Autos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            color-scheme: light;
+            --color-primary: #2646d3;
+            --color-secondary: #f95a28;
+            --color-surface: #ffffff;
+            --color-background: #f4f7ff;
+            --color-text: #273043;
+            --color-border: #d7def4;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Poppins', sans-serif;
+            background: var(--color-background);
+            color: var(--color-text);
+            min-height: 100vh;
+        }
+
+        main {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 32px 20px 48px;
+        }
+
+        header.hero {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        header.hero h1 {
+            margin: 0 0 8px;
+            color: var(--color-primary);
+            font-weight: 700;
+        }
+
+        header.hero p {
+            margin: 0;
+            color: rgba(39, 48, 67, 0.75);
+        }
+
+        .switcher {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .switch-button {
+            border: none;
+            border-radius: 999px;
+            padding: 12px 28px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            background: var(--color-primary);
+            color: #fff;
+            transition: background 0.2s ease, transform 0.2s ease;
+        }
+
+        .switch-button:hover,
+        .switch-button:focus {
+            transform: translateY(-1px);
+        }
+
+        .switch-button.active {
+            background: var(--color-secondary);
+        }
+
+        .form-wrapper {
+            display: none;
+            animation: fadeIn 0.35s ease;
+        }
+
+        .form-wrapper.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .form-card {
+            background: var(--color-surface);
+            border-radius: 18px;
+            box-shadow: 0 12px 30px rgba(38, 70, 211, 0.08);
+            padding: 28px 24px 40px;
+        }
+
+        .form-card h1,
+        .form-card h2,
+        .form-card h3,
+        .form-card h4 {
+            color: var(--color-primary);
+            margin-top: 0;
+        }
+
+        .form-section {
+            margin-bottom: 24px;
+        }
+
+        .form-section h2 {
+            font-size: 20px;
+            border-bottom: 2px solid var(--color-border);
+            padding-bottom: 12px;
+            margin-bottom: 16px;
+        }
+
+        .section {
+            margin-bottom: 24px;
+        }
+
+        .section h2,
+        .section h4,
+        .section label {
+            color: var(--color-primary);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: minmax(140px, 220px) 1fr;
+            gap: 12px 16px;
+        }
+
+        .form-grid label {
+            font-weight: 600;
+        }
+
+        input[type="text"],
+        input[type="date"],
+        input[type="email"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--color-border);
+            font-family: inherit;
+            font-size: 15px;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .inventory-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .inventory-grid label {
+            flex: 1 1 calc(33.333% - 12px);
+            background: rgba(38, 70, 211, 0.05);
+            border-radius: 12px;
+            padding: 10px 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .inventory-grid input[type="checkbox"],
+        .inventory-grid input[type="radio"] {
+            accent-color: var(--color-secondary);
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 8px 0;
+        }
+
+        .form-inline {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: space-between;
+        }
+
+        .form-group-inline {
+            display: flex;
+            flex-direction: column;
+            min-width: 180px;
+            flex: 1 1 220px;
+        }
+
+        .form-group-inline label {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .signature-pad {
+            border: 2px dashed rgba(38, 70, 211, 0.35);
+            background-color: #f9f9ff;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 320px;
+        }
+
+        .signature-buttons {
+            margin-top: 8px;
+        }
+
+        .signature-buttons button,
+        .primary-button,
+        .secondary-button {
+            border: none;
+            border-radius: 10px;
+            padding: 10px 18px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .primary-button {
+            background: var(--color-primary);
+            color: #fff;
+        }
+
+        .primary-button:hover,
+        .secondary-button:hover,
+        .signature-buttons button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(38, 70, 211, 0.15);
+        }
+
+        .secondary-button,
+        .signature-buttons button {
+            background: rgba(38, 70, 211, 0.1);
+            color: var(--color-primary);
+        }
+
+        .submit-wrapper {
+            text-align: center;
+            margin-top: 32px;
+        }
+
+        .selected-services-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px dashed rgba(38, 70, 211, 0.25);
+            min-height: 48px;
+            background: rgba(38, 70, 211, 0.04);
+        }
+
+        .service-tag {
+            background: var(--color-primary);
+            color: #fff;
+            padding: 6px 14px;
+            border-radius: 999px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        #diagrama-container {
+            position: relative;
+            text-align: center;
+            background: #fff;
+            border-radius: 16px;
+            padding: 16px;
+        }
+
+        #diagrama-bmw {
+            cursor: pointer;
+            width: 100%;
+            height: auto;
+            border-radius: 12px;
+        }
+
+        #diagram-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .dynamic-textbox-container {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(38, 70, 211, 0.35);
+            padding: 10px;
+            border-radius: 12px;
+            box-shadow: 0 10px 24px rgba(38, 70, 211, 0.18);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-width: 200px;
+        }
+
+        .dynamic-textbox-container textarea {
+            width: 100%;
+            min-height: 70px;
+        }
+
+        .permanent-note {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(38, 70, 211, 0.35);
+            padding: 6px 8px;
+            border-radius: 10px;
+            font-size: 13px;
+            color: var(--color-text);
+            box-shadow: 0 12px 24px rgba(38, 70, 211, 0.15);
+            max-width: 220px;
+        }
+
+        .acta-title {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .acta-title h2 {
+            margin: 0;
+            font-size: 26px;
+        }
+
+        .acta-title p {
+            margin: 4px 0 0;
+            color: rgba(39, 48, 67, 0.7);
+        }
+
+        .hidden-text-input {
+            display: none;
+            margin-top: 8px;
+        }
+
+        @media (max-width: 900px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .inventory-grid label {
+                flex: 1 1 calc(50% - 12px);
+            }
+        }
+
+        @media (max-width: 600px) {
+            main {
+                padding: 24px 16px 36px;
+            }
+
+            .inventory-grid label {
+                flex: 1 1 100%;
+            }
+
+            .form-inline {
+                flex-direction: column;
+            }
+
+            .form-card {
+                padding: 24px 18px 32px;
+            }
+
+            .switch-button {
+                flex: 1 1 100%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            header.hero h1 {
+                font-size: 24px;
+            }
+
+            .acta-title h2 {
+                font-size: 22px;
+            }
+
+            .form-card {
+                padding: 20px 16px 28px;
+            }
+
+            .switch-button {
+                width: 100%;
+                padding: 12px 18px;
+            }
+
+            #diagrama-container {
+                padding: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+<main>
+    <header class="hero">
+        <h1>Gestión de Actas - 8/7 Autos</h1>
+        <p>Selecciona el tipo de acta para comenzar a diligenciar la información del vehículo.</p>
+    </header>
+
+    <div class="switcher">
+        <button type="button" class="switch-button" data-form="ingreso" onclick="mostrarFormulario('ingreso')">Acta de Ingreso</button>
+        <button type="button" class="switch-button" data-form="entrega" onclick="mostrarFormulario('entrega')">Acta de Entrega</button>
+    </div>
+
+    <section id="form-ingreso" class="form-wrapper">
+        <div class="form-card">
+            <div class="acta-title">
+                <h2>Formulario de Ingreso de Vehículo</h2>
+                <p>Registra la entrada del vehículo, su estado inicial y los compromisos del servicio.</p>
+            </div>
+            <form id="ingresoForm" autocomplete="off">
+                <div class="form-section">
+                    <div class="form-inline">
+                        <div class="form-group-inline">
+                            <label for="fecha-entrega">Fecha de entrega</label>
+                            <input type="date" id="fecha-entrega" name="fecha-entrega">
+                        </div>
+                        <div class="form-group-inline">
+                            <label for="fecha-salida">Fecha de salida</label>
+                            <input type="date" id="fecha-salida" name="fecha-salida">
+                        </div>
+                        <div class="form-group-inline">
+                            <label for="orden-trabajo">Orden de Trabajo N°</label>
+                            <input type="text" id="orden-trabajo" name="orden-trabajo">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2>Información del Propietario</h2>
+                    <div class="form-grid">
+                        <label for="propietario">Propietario</label>
+                        <input type="text" id="propietario" name="propietario">
+                        <label for="documento">Documento</label>
+                        <input type="text" id="documento" name="documento">
+                        <label for="telefono">Teléfono</label>
+                        <input type="text" id="telefono" name="telefono">
+                        <label for="correo">Correo</label>
+                        <input type="email" id="correo" name="correo">
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2>Información del Vehículo</h2>
+                    <div class="form-grid">
+                        <label for="placa">Placa</label>
+                        <input type="text" id="placa" name="placa">
+                        <label for="marca">Marca</label>
+                        <input type="text" id="marca" name="marca">
+                        <label for="color">Color</label>
+                        <input type="text" id="color" name="color">
+                        <label for="km">KM</label>
+                        <input type="text" id="km" name="km">
+                        <label for="seguro-vence">Seguro obligatorio vence</label>
+                        <input type="date" id="seguro-vence" name="seguro-vence">
+                        <label for="tecnico-vence">Técnico mecánica vence</label>
+                        <input type="date" id="tecnico-vence" name="tecnico-vence">
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2>Inventario del Vehículo</h2>
+                    <div class="inventory-grid">
+                        <label><input type="checkbox" name="inventario" value="Tapa combustible"> Tapa combustible</label>
+                        <label><input type="checkbox" name="inventario" value="Stop"> Stop</label>
+                        <label><input type="checkbox" name="inventario" value="Cenicero"> Cenicero</label>
+                        <label><input type="checkbox" name="inventario" value="Encendedor"> Encendedor</label>
+                        <label><input type="checkbox" name="inventario" value="Antena"> Antena</label>
+                        <label><input type="checkbox" name="inventario" value="Espejos"> Espejos</label>
+                        <label><input type="checkbox" name="inventario" value="Boceles"> Boceles</label>
+                        <label><input type="checkbox" name="inventario" value="Manijas"> Manijas</label>
+                        <label><input type="checkbox" name="inventario" value="Vidrios"> Vidrios</label>
+                        <label><input type="checkbox" name="inventario" value="Freno de estacionamiento"> Freno de estacionamiento</label>
+                        <label><input type="checkbox" name="inventario" value="Aire acondicionado"> Aire acondicionado</label>
+                        <label><input type="checkbox" name="inventario" value="Elevavidrios"> Elevavidrios</label>
+                        <label><input type="checkbox" name="inventario" value="Exploradoras"> Exploradoras</label>
+                        <label><input type="checkbox" name="inventario" value="Perno seguridad"> Perno seguridad</label>
+                        <label><input type="checkbox" name="inventario" value="Herramientas"> Herramientas</label>
+                        <label><input type="checkbox" name="inventario" value="Gato"> Gato</label>
+                        <label><input type="checkbox" name="inventario" value="Manuales"> Manuales</label>
+                        <label><input type="checkbox" name="inventario" value="Certificado de gases"> Certificado de gases</label>
+                        <label><input type="checkbox" name="inventario" value="Tarjeta de propiedad"> Tarjeta de propiedad</label>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2>Funcionamiento</h2>
+                    <div class="inventory-grid">
+                        <label><input type="checkbox" name="funcionamiento" value="Luces instrumentos y pantalla central"> Luces instrumentos y pantalla central</label>
+                        <label><input type="checkbox" name="funcionamiento" value="Luces interiores"> Luces interiores</label>
+                        <label><input type="checkbox" name="funcionamiento" value="Volante"> Volante</label>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2>Combustible</h2>
+                    <div class="inventory-grid">
+                        <label><input type="radio" name="combustible" value="1/4"> 1/4</label>
+                        <label><input type="radio" name="combustible" value="1/2"> 1/2</label>
+                        <label><input type="radio" name="combustible" value="3/4"> 3/4</label>
+                        <label><input type="radio" name="combustible" value="F"> Lleno</label>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2>Estado del Vehículo</h2>
+                    <div class="inventory-grid">
+                        <label><input type="checkbox" name="estado-vehiculo" value="Golpe"> Golpe</label>
+                        <label><input type="checkbox" name="estado-vehiculo" value="Rayado"> Rayado</label>
+                        <label><input type="checkbox" name="estado-vehiculo" value="Abolladura"> Abolladura</label>
+                        <label><input type="checkbox" name="estado-vehiculo" value="Limpio"> Limpio</label>
+                        <label><input type="checkbox" name="estado-vehiculo" value="Sucio"> Sucio</label>
+                        <label><input type="checkbox" name="estado-vehiculo" value="Muy sucio"> Muy sucio</label>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2>Diagrama del Vehículo</h2>
+                    <div id="diagrama-container">
+                        <img id="diagrama-bmw" src="https://i.imgur.com/DgPzox8.jpeg" alt="Diagrama del vehículo" usemap="#bmwmap">
+                        <map name="bmwmap">
+                            <area shape="rect" coords="100,0,480,300" alt="Vista Frontal" data-part="Vista Frontal">
+                            <area shape="rect" coords="530,0,850,300" alt="Vista Trasera" data-part="Vista Trasera">
+                            <area shape="rect" coords="150,301,900,550" alt="Lateral Izquierdo" data-part="Lateral Izquierdo">
+                            <area shape="rect" coords="0,551,900,800" alt="Lateral Derecho" data-part="Lateral Derecho">
+                            <area shape="rect" coords="200,900,900,1150" alt="Vista Superior" data-part="Vista Superior">
+                        </map>
+                        <svg id="diagram-svg"></svg>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2>Descripción actividad o falla</h2>
+                    <textarea id="descripcion-falla" name="descripcion-falla" rows="4"></textarea>
+                </div>
+
+                <div class="form-section">
+                    <h2>Nota</h2>
+                    <p>Esta orden se asimila en todos sus efectos a una letra de cambio conforme con los Artículos 621 y 774 del código de comercio. Pasados 5 días de estar terminado el arreglo del vehículo será llevado a un parqueadero público y se cobrará al cliente los costos del mismo.</p>
+                </div>
+
+                <div class="form-section">
+                    <h2>Condiciones</h2>
+                    <p>1. Los materiales y piezas de repuestos son suministrados por la empresa, salvo estipulación de contrato.</p>
+                    <p>2. Los riesgos y peligros del vehículo durante el tiempo que permanezca en los talleres de la empresa, desde el momento de la entrega del mismo para su reparación, no desde su aprobación que le imparta a dicha reparación pues para el efecto renuncia expresamente al beneficio del que trata en inciso segundo del artículo 2053 del código civil en concordancia con los artículos 1604 inciso cuarto y 2057.</p>
+                    <p>3. La empresa queda autorizada para ejecutar las pruebas necesarias del vehículo fuera del taller.</p>
+                    <p>4. En caso de fuerza mayor o caso fortuito, la empresa no responde por pérdidas o deterioros en los vehículos o en los objetos a su cuidado.</p>
+                    <p>5. La empresa queda facultada para ejercer su derecho de retención del vehículo mientras esté pendiente la cancelación de la cuenta.</p>
+                    <p>6. Es entendido que quien contrata y ordena el trabajo descrito es el mismo quien conoce y acepta íntegramente el contrato que se celebra y que consta en este documento.</p>
+                </div>
+
+                <div class="form-section">
+                    <h2>Firmas</h2>
+                    <div style="display: flex; flex-wrap: wrap; gap: 24px; justify-content: center;">
+                        <div style="text-align: center;">
+                            <p>Firma del Cliente</p>
+                            <canvas id="signatureClientIngreso" class="signature-pad" width="300" height="150"></canvas>
+                            <div class="signature-buttons">
+                                <button type="button" onclick="clearSignature('signatureClientIngreso')">Borrar</button>
+                            </div>
+                        </div>
+                        <div style="text-align: center;">
+                            <p>Firma del Responsable</p>
+                            <canvas id="signatureResponsibleIngreso" class="signature-pad" width="300" height="150"></canvas>
+                            <div class="signature-buttons">
+                                <button type="button" onclick="clearSignature('signatureResponsibleIngreso')">Borrar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="submit-wrapper">
+                    <button type="button" id="sendButtonIngreso" class="primary-button" data-default-text="Enviar">Enviar</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <section id="form-entrega" class="form-wrapper">
+        <div class="form-card">
+            <div class="acta-title">
+                <h2>Acta de Entrega de Vehículo</h2>
+                <p>Confirma los servicios realizados y la entrega del vehículo al cliente.</p>
+            </div>
+            <form id="entregaForm" autocomplete="off">
+                <div class="section">
+                    <h2>Información General</h2>
+                    <div class="form-grid">
+                        <label for="deliveryDate">Fecha</label>
+                        <input type="date" id="deliveryDate">
+                        <label for="quoteNumber">Número de Cotización</label>
+                        <input type="text" id="quoteNumber">
+                        <label for="clientName">Nombre del Cliente</label>
+                        <input type="text" id="clientName">
+                        <label for="clientId">Documento de Identidad</label>
+                        <input type="text" id="clientId">
+                        <label for="clientAddress">Dirección</label>
+                        <input type="text" id="clientAddress">
+                        <label for="clientPhone">Teléfono</label>
+                        <input type="text" id="clientPhone">
+                        <label for="clientEmail">Correo</label>
+                        <input type="email" id="clientEmail">
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>Datos del Vehículo</h2>
+                    <div class="form-grid">
+                        <label for="vehicleMake">Marca</label>
+                        <input type="text" id="vehicleMake">
+                        <label for="vehicleLine">Línea</label>
+                        <input type="text" id="vehicleLine">
+                        <label for="vehicleModel">Modelo</label>
+                        <input type="text" id="vehicleModel">
+                        <label for="vehicleColor">Color</label>
+                        <input type="text" id="vehicleColor">
+                        <label for="vehiclePlate">Placa</label>
+                        <input type="text" id="vehiclePlate">
+                        <label for="vehicleKm">Kilometraje</label>
+                        <input type="text" id="vehicleKm">
+                        <label for="vehicleVin">VIN</label>
+                        <input type="text" id="vehicleVin">
+                        <label for="vehicleEngineNum">Número de Motor</label>
+                        <input type="text" id="vehicleEngineNum">
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>Servicios Realizados</h2>
+                    <div class="form-group full-width">
+                        <label for="serviceCategory">Categoría</label>
+                        <select id="serviceCategory">
+                            <option value="">Selecciona una categoría</option>
+                            <option value="estetica">Estética y Detallado</option>
+                            <option value="personalizacion">Personalización y Accesorios</option>
+                            <option value="proteccion">Protección y Seguridad</option>
+                            <option value="tecnologia">Tecnología y Multimedios</option>
+                            <option value="mecanico">Mecánico y Mantenimiento</option>
+                            <option value="otros">Otros Servicios</option>
+                        </select>
+                    </div>
+
+                    <div id="estetica_services" class="service-options hidden-text-input">
+                        <h4>Estética y Detallado</h4>
+                        <div class="checkbox-group">
+                            <label><input type="checkbox" name="service" value="Lavado general"> Lavado general</label>
+                            <label><input type="checkbox" name="service" value="Lavado general premium"> Lavado general premium</label>
+                            <label><input type="checkbox" name="service" value="Lavado general cerámico"> Lavado general cerámico</label>
+                            <label><input type="checkbox" name="service" value="Lavado de motor"> Lavado de motor</label>
+                            <label><input type="checkbox" name="service" value="Descontaminación de carrocería"> Descontaminación de carrocería</label>
+                            <label><input type="checkbox" name="service" value="Abrillantado de carrocería"> Abrillantado de carrocería</label>
+                            <label><input type="checkbox" name="service" value="Pulida de carrocería"> Pulida de carrocería</label>
+                            <label><input type="checkbox" name="service" value="Pulida de faros"> Pulida de faros</label>
+                            <label><input type="checkbox" name="service" value="Lavado de cojinería"> Lavado de cojinería</label>
+                            <label><input type="checkbox" name="service" value="Lavado de techo"> Lavado de techo</label>
+                            <label><input type="checkbox" name="service" value="Lavado de puertas"> Lavado de puertas</label>
+                            <label><input type="checkbox" name="service" value="Lavado de baúl"> Lavado de baúl</label>
+                            <label><input type="checkbox" name="service" value="Lavado de sillas"> Lavado de sillas</label>
+                            <label><input type="checkbox" name="service" value="Lavado de tapetes"> Lavado de tapetes</label>
+                            <label><input type="checkbox" name="service" value="Lavado de alfombra"> Lavado de alfombra</label>
+                            <label><input type="checkbox" name="service" value="Descontaminación de vidrios"> Descontaminación de vidrios</label>
+                            <div>
+                                <label><input type="checkbox" class="otros-check" id="estetica_otros_check" name="service" value="Otros"> Otros</label>
+                                <input type="text" id="estetica_otros_text" class="otros-text-input hidden-text-input" placeholder="Especifica otros servicios de estética">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="personalizacion_services" class="service-options hidden-text-input">
+                        <h4>Personalización y Accesorios</h4>
+                        <div class="checkbox-group">
+                            <label><input type="checkbox" name="service" value="Cambio de color completo"> Cambio de color completo</label>
+                            <label><input type="checkbox" name="service" value="Cambio de color parcial"> Cambio de color parcial</label>
+                            <label><input type="checkbox" name="service" value="Apliques decorativos"> Apliques decorativos</label>
+                            <label><input type="checkbox" name="service" value="Bordes y detalles decorativos"> Bordes y detalles decorativos</label>
+                            <label><input type="checkbox" name="service" value="Personalización de rines"> Personalización de rines</label>
+                            <label><input type="checkbox" name="service" value="Cambio de rines"> Cambio de rines</label>
+                            <label><input type="checkbox" name="service" value="Cambio de llantas"> Cambio de llantas</label>
+                            <label><input type="checkbox" name="service" value="Cambia de caliper"> Cambio de caliper</label>
+                            <label><input type="checkbox" name="service" value="Cambio de spoiler"> Cambio de spoiler</label>
+                            <label><input type="checkbox" name="service" value="Faldones deportivos"> Faldones deportivos</label>
+                            <label><input type="checkbox" name="service" value="Difusor trasero"> Difusor trasero</label>
+                            <label><input type="checkbox" name="service" value="Splitter delantero"> Splitter delantero</label>
+                            <label><input type="checkbox" name="service" value="Alas deportivas"> Alas deportivas</label>
+                            <label><input type="checkbox" name="service" value="Scoops"> Scoops</label>
+                            <label><input type="checkbox" name="service" value="Interior deportivo"> Interior deportivo</label>
+                            <label><input type="checkbox" name="service" value="Cambio de tapicería"> Cambio de tapicería</label>
+                            <label><input type="checkbox" name="service" value="Cambio de parte de tapicería"> Cambio de parte de tapicería</label>
+                            <label><input type="checkbox" name="service" value="Cambio de volante"> Cambio de volante</label>
+                            <label><input type="checkbox" name="service" value="Cambio de pomo"> Cambio de pomo</label>
+                            <label><input type="checkbox" name="service" value="Instalación de alerón"> Instalación de alerón</label>
+                            <div>
+                                <label><input type="checkbox" class="otros-check" id="personalizacion_otros_check" name="service" value="Otros"> Otros</label>
+                                <input type="text" id="personalizacion_otros_text" class="otros-text-input hidden-text-input" placeholder="Especifica otros servicios de personalización">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="proteccion_services" class="service-options hidden-text-input">
+                        <h4>Protección y Seguridad</h4>
+                        <div class="checkbox-group">
+                            <label><input type="checkbox" name="service" value="Protección cerámica"> Protección cerámica</label>
+                            <label><input type="checkbox" name="service" value="Film de protección (PPF)"> Film de protección (PPF)</label>
+                            <label><input type="checkbox" name="service" value="Polarizado"> Polarizado</label>
+                            <label><input type="checkbox" name="service" value="Blindaje básico"> Blindaje básico</label>
+                            <label><input type="checkbox" name="service" value="Blindaje intermedio"> Blindaje intermedio</label>
+                            <label><input type="checkbox" name="service" value="Blindaje completo"> Blindaje completo</label>
+                            <label><input type="checkbox" name="service" value="Localizador satelital"> Localizador satelital</label>
+                            <label><input type="checkbox" name="service" value="Protección UV de interiores"> Protección UV de interiores</label>
+                            <div>
+                                <label><input type="checkbox" class="otros-check" id="proteccion_otros_check" name="service" value="Otros"> Otros</label>
+                                <input type="text" id="proteccion_otros_text" class="otros-text-input hidden-text-input" placeholder="Especifica otros servicios de protección">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="tecnologia_services" class="service-options hidden-text-input">
+                        <h4>Tecnología y Multimedios</h4>
+                        <div class="checkbox-group">
+                            <label><input type="checkbox" name="service" value="Instalación de pantalla digital"> Instalación de pantalla digital</label>
+                            <label><input type="checkbox" name="service" value="Sistema de sonido premium"> Sistema de sonido premium</label>
+                            <label><input type="checkbox" name="service" value="Cámaras 360°"> Cámaras 360°</label>
+                            <label><input type="checkbox" name="service" value="Sensores de parqueo"> Sensores de parqueo</label>
+                            <label><input type="checkbox" name="service" value="GPS y navegación"> GPS y navegación</label>
+                            <label><input type="checkbox" name="service" value="Sistema de entretenimiento trasero"> Sistema de entretenimiento trasero</label>
+                            <label><input type="checkbox" name="service" value="Iluminación LED interior"> Iluminación LED interior</label>
+                            <div>
+                                <label><input type="checkbox" class="otros-check" id="tecnologia_otros_check" name="service" value="Otros"> Otros</label>
+                                <input type="text" id="tecnologia_otros_text" class="otros-text-input hidden-text-input" placeholder="Especifica otros servicios de tecnología">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="mecanico_services" class="service-options hidden-text-input">
+                        <h4>Mecánico y Mantenimiento</h4>
+                        <div class="checkbox-group">
+                            <label><input type="checkbox" name="service" value="Mantenimiento preventivo"> Mantenimiento preventivo</label>
+                            <label><input type="checkbox" name="service" value="Cambio de aceite"> Cambio de aceite</label>
+                            <label><input type="checkbox" name="service" value="Cambio de filtros"> Cambio de filtros</label>
+                            <label><input type="checkbox" name="service" value="Sincronización"> Sincronización</label>
+                            <label><input type="checkbox" name="service" value="Revisión de frenos"> Revisión de frenos</label>
+                            <label><input type="checkbox" name="service" value="Revisión de suspensión"> Revisión de suspensión</label>
+                            <label><input type="checkbox" name="service" value="Revisión de dirección"> Revisión de dirección</label>
+                            <label><input type="checkbox" name="service" value="Cambio de correas"> Cambio de correas</label>
+                            <label><input type="checkbox" name="service" value="Reparación de motor"> Reparación de motor</label>
+                            <label><input type="checkbox" name="service" value="Diagnóstico computarizado"> Diagnóstico computarizado</label>
+                            <div>
+                                <label><input type="checkbox" class="otros-check" id="mecanico_otros_check" name="service" value="Otros"> Otros</label>
+                                <input type="text" id="mecanico_otros_text" class="otros-text-input hidden-text-input" placeholder="Especifica otros servicios mecánicos">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="otros_services" class="service-options hidden-text-input">
+                        <h4>Otros Servicios</h4>
+                        <div class="checkbox-group">
+                            <label><input type="checkbox" name="service" value="Trámites y gestoría"> Trámites y gestoría</label>
+                            <label><input type="checkbox" name="service" value="Auxilio en carretera"> Auxilio en carretera</label>
+                            <label><input type="checkbox" name="service" value="Inspección pre compra"> Inspección pre compra</label>
+                            <div>
+                                <label><input type="checkbox" class="otros-check" id="otros_otros_check" name="service" value="Otros"> Otros</label>
+                                <input type="text" id="otros_otros_text" class="otros-text-input hidden-text-input" placeholder="Especifica otros servicios adicionales">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h4>Servicios Seleccionados</h4>
+                    <div id="selectedServicesList" class="selected-services-container"></div>
+                </div>
+
+                <div class="section">
+                    <label for="serviceObservations">Observaciones del Servicio</label>
+                    <textarea id="serviceObservations"></textarea>
+                </div>
+
+                <div class="section">
+                    <h2>Estado del Vehículo a la Entrega</h2>
+                    <div class="form-group full-width">
+                        <label for="deliveryCondition">Condiciones Generales</label>
+                        <textarea id="deliveryCondition"></textarea>
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="deliveryItemSelect">Elementos Entregados</label>
+                        <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+                            <select id="deliveryItemSelect" style="flex: 1 1 220px; min-width: 200px;">
+                                <option value="">-- Seleccione un elemento --</option>
+                                <option value="Llave">Llave</option>
+                                <option value="Documentos del vehículo">Documentos del vehículo</option>
+                                <option value="Perno de seguridad y enganche">Perno de seguridad y enganche</option>
+                                <option value="Kit de carretera">Kit de carretera</option>
+                                <option value="Botiquín y extintor">Botiquín y extintor</option>
+                                <option value="Otros">Otros</option>
+                            </select>
+                            <input type="text" id="delivery_item_otros_text" class="hidden-text-input" placeholder="Especifica otro elemento..." style="flex: 1 1 220px;">
+                            <button type="button" id="addDeliveryItemBtn" class="secondary-button">Añadir</button>
+                        </div>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Resumen</label>
+                        <div id="selectedDeliveryItemsList" class="selected-services-container"></div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>Firmas</h2>
+                    <div style="display: flex; flex-wrap: wrap; gap: 24px; justify-content: center;">
+                        <div style="text-align: center;">
+                            <p>Firma del Cliente</p>
+                            <canvas id="signatureClientEntrega" class="signature-pad" width="300" height="150"></canvas>
+                            <div class="signature-buttons">
+                                <button type="button" onclick="clearSignature('signatureClientEntrega')">Borrar</button>
+                            </div>
+                        </div>
+                        <div style="text-align: center;">
+                            <p>Firma del Responsable</p>
+                            <canvas id="signatureResponsibleEntrega" class="signature-pad" width="300" height="150"></canvas>
+                            <div class="signature-buttons">
+                                <button type="button" onclick="clearSignature('signatureResponsibleEntrega')">Borrar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="submit-wrapper">
+                    <button type="button" id="sendButtonEntrega" class="primary-button" data-default-text="Enviar">Enviar</button>
+                </div>
+            </form>
+        </div>
+    </section>
+</main>
+
+<script>
+    const scriptUrl = 'https://script.google.com/macros/s/TU_DEPLOY_ID/exec';
+
+    function mostrarFormulario(tipo) {
+        const wrappers = document.querySelectorAll('.form-wrapper');
+        wrappers.forEach(wrapper => {
+            const shouldShow = wrapper.id === `form-${tipo}`;
+            wrapper.classList.toggle('active', shouldShow);
+        });
+
+        const buttons = document.querySelectorAll('.switch-button');
+        buttons.forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.form === tipo);
+        });
+    }
+
+    function clearSignature(canvasId) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function setupIngresoForm() {
+        const wrapper = document.getElementById('form-ingreso');
+        const form = document.getElementById('ingresoForm');
+        if (!wrapper || !form) return;
+
+        const diagramaContainer = wrapper.querySelector('#diagrama-container');
+        const img = wrapper.querySelector('#diagrama-bmw');
+        const svg = wrapper.querySelector('#diagram-svg');
+        let diagramNotes = [];
+
+        function renderDiagramNotes() {
+            wrapper.querySelectorAll('.permanent-note').forEach(note => note.remove());
+            svg.innerHTML = '';
+
+            if (!svg.querySelector('#arrowhead')) {
+                const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+                const arrowhead = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+                arrowhead.setAttribute('id', 'arrowhead');
+                arrowhead.setAttribute('viewBox', '0 0 10 10');
+                arrowhead.setAttribute('refX', '9');
+                arrowhead.setAttribute('refY', '5');
+                arrowhead.setAttribute('markerUnits', 'strokeWidth');
+                arrowhead.setAttribute('markerWidth', '6');
+                arrowhead.setAttribute('markerHeight', '6');
+                arrowhead.setAttribute('orient', 'auto');
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
+                path.setAttribute('fill', 'black');
+                arrowhead.appendChild(path);
+                defs.appendChild(arrowhead);
+                svg.appendChild(defs);
+            }
+
+            diagramNotes.forEach(note => {
+                const noteDiv = document.createElement('div');
+                noteDiv.className = 'permanent-note';
+                noteDiv.id = `permanent-note-${note.id}`;
+                noteDiv.style.left = `${note.displayX}px`;
+                noteDiv.style.top = `${note.displayY}px`;
+                noteDiv.innerHTML = `<strong>${note.partName}:</strong> ${note.noteText}`;
+                noteDiv.title = 'Click para eliminar';
+
+                noteDiv.addEventListener('click', () => {
+                    const noteIndex = diagramNotes.findIndex(n => n.id === note.id);
+                    if (noteIndex > -1) {
+                        diagramNotes.splice(noteIndex, 1);
+                        renderDiagramNotes();
+                    }
+                });
+
+                diagramaContainer.appendChild(noteDiv);
+
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', note.clickX);
+                line.setAttribute('y1', note.clickY);
+                line.setAttribute('x2', note.displayX);
+                line.setAttribute('y2', note.displayY);
+                line.setAttribute('stroke', 'black');
+                line.setAttribute('stroke-width', '1.5');
+                line.setAttribute('marker-end', 'url(#arrowhead)');
+                svg.appendChild(line);
+            });
+        }
+
+        function getSafeZoneStart() {
+            return { x: 10, y: 10 };
+        }
+
+        function findNonOverlappingPosition(safeZoneXStart, safeZoneYStart, noteWidth, noteHeight) {
+            const padding = 5;
+            const safeZoneYEnd = window.innerHeight - 20;
+            let currentX = safeZoneXStart;
+            let currentY = safeZoneYStart;
+            let foundPosition = false;
+            let attempts = 0;
+            const maxAttempts = 1000;
+
+            while (!foundPosition && attempts < maxAttempts) {
+                let collision = false;
+                for (const existingNote of diagramNotes) {
+                    const existingNoteDiv = wrapper.querySelector(`#permanent-note-${existingNote.id}`);
+                    if (existingNoteDiv) {
+                        const existingRect = {
+                            left: existingNote.displayX,
+                            top: existingNote.displayY,
+                            right: existingNote.displayX + existingNoteDiv.offsetWidth,
+                            bottom: existingNote.displayY + existingNoteDiv.offsetHeight
+                        };
+                        const newRect = {
+                            left: currentX,
+                            top: currentY,
+                            right: currentX + noteWidth,
+                            bottom: currentY + noteHeight
+                        };
+                        if (!(existingRect.right + padding < newRect.left ||
+                              existingRect.left > newRect.right + padding ||
+                              existingRect.bottom + padding < newRect.top ||
+                              existingRect.top > newRect.bottom + padding)) {
+                            collision = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!collision && currentY + noteHeight <= safeZoneYEnd) {
+                    foundPosition = true;
+                } else if (collision) {
+                    currentY += noteHeight + padding;
+                    if (currentY + noteHeight > safeZoneYEnd) {
+                        currentY = safeZoneYStart;
+                        currentX += noteWidth + padding;
+                        if (currentX + noteWidth > window.innerWidth - 20) {
+                            currentX = safeZoneXStart;
+                        }
+                    }
+                }
+                attempts++;
+            }
+
+            return { x: currentX, y: currentY };
+        }
+
+        const areas = diagramaContainer.querySelectorAll('map area');
+        areas.forEach(area => {
+            area.addEventListener('click', event => {
+                event.preventDefault();
+                const partName = area.getAttribute('data-part');
+                const imgRect = img.getBoundingClientRect();
+                const clickX = (event.clientX - imgRect.left);
+                const clickY = (event.clientY - imgRect.top);
+                const tempTextbox = document.createElement('div');
+                tempTextbox.className = 'dynamic-textbox-container';
+                tempTextbox.style.left = `${clickX + 20}px`;
+                tempTextbox.style.top = `${clickY + 20}px`;
+                tempTextbox.innerHTML = `<strong>${partName}:</strong> <textarea placeholder="Observación..."></textarea>`;
+                diagramaContainer.appendChild(tempTextbox);
+
+                const textarea = tempTextbox.querySelector('textarea');
+                textarea.focus();
+                textarea.addEventListener('blur', () => {
+                    if (textarea.value.trim() !== '') {
+                        const noteText = textarea.value.trim();
+                        const newNoteId = Date.now();
+                        const { x: safeZoneInitialX, y: safeZoneInitialY } = getSafeZoneStart();
+                        const { x: displayX, y: displayY } = findNonOverlappingPosition(safeZoneInitialX, safeZoneInitialY, 200, 80);
+                        diagramNotes.push({
+                            partName,
+                            noteText,
+                            clickX,
+                            clickY,
+                            displayX,
+                            displayY,
+                            id: newNoteId
+                        });
+                        renderDiagramNotes();
+                    }
+                    tempTextbox.remove();
+                });
+
+                textarea.addEventListener('keydown', e => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        textarea.blur();
+                    }
+                });
+            });
+        });
+
+        if (img) {
+            img.addEventListener('load', renderDiagramNotes);
+            if (img.complete) {
+                renderDiagramNotes();
+            }
+        }
+
+        wrapper.querySelectorAll('.signature-pad').forEach(canvas => {
+            const ctx = canvas.getContext('2d');
+            let drawing = false;
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = 'black';
+
+            function getPos(evt) {
+                const rect = canvas.getBoundingClientRect();
+                const source = evt.touches ? evt.touches[0] : evt;
+                return { x: source.clientX - rect.left, y: source.clientY - rect.top };
+            }
+
+            function startDrawing(e) {
+                drawing = true;
+                const pos = getPos(e);
+                ctx.beginPath();
+                ctx.moveTo(pos.x, pos.y);
+                if (e.cancelable) e.preventDefault();
+            }
+
+            function draw(e) {
+                if (!drawing) return;
+                const pos = getPos(e);
+                ctx.lineTo(pos.x, pos.y);
+                ctx.stroke();
+                if (e.cancelable) e.preventDefault();
+            }
+
+            function stopDrawing() {
+                drawing = false;
+                ctx.closePath();
+            }
+
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseout', stopDrawing);
+            canvas.addEventListener('touchstart', startDrawing);
+            canvas.addEventListener('touchmove', draw);
+            canvas.addEventListener('touchend', stopDrawing);
+        });
+
+        const sendButton = wrapper.querySelector('#sendButtonIngreso');
+        if (sendButton) {
+            const defaultText = sendButton.dataset.defaultText || 'Enviar';
+            sendButton.addEventListener('click', async () => {
+                sendButton.textContent = 'Enviando...';
+                sendButton.disabled = true;
+
+                const checkboxMapping = {
+                    "Tapa combustible": "tapaCombustible", "Stop": "stop", "Cenicero": "cenicero", "Encendedor": "encendedor",
+                    "Antena": "antena", "Espejos": "espejos", "Boceles": "boceles", "Manijas": "manijas", "Vidrios": "vidrios",
+                    "Freno de estacionamiento": "frenoEstacionamiento", "Aire acondicionado": "aireAcondicionado",
+                    "Elevavidrios": "elevavidrios", "Exploradoras": "exploradoras", "Perno seguridad": "pernoSeguridad",
+                    "Herramientas": "herramientas", "Gato": "gato", "Manuales": "manuales", "Certificado de gases": "certificadoGases",
+                    "Tarjeta de propiedad": "tarjetaPropiedad", "Luces instrumentos y pantalla central": "lucesInstrumentos",
+                    "Luces interiores": "lucesInteriores", "Volante": "volante", "Golpe": "golpe", "Rayado": "rayado",
+                    "Abolladura": "abolladura", "Limpio": "limpio", "Sucio": "sucio", "Muy sucio": "muySucio"
+                };
+
+                const formData = {
+                    tipoFormulario: 'ingreso',
+                    fechaEntrega: wrapper.querySelector('#fecha-entrega')?.value || '',
+                    fechaSalida: wrapper.querySelector('#fecha-salida')?.value || '',
+                    ordenTrabajo: wrapper.querySelector('#orden-trabajo')?.value || '',
+                    propietario: wrapper.querySelector('#propietario')?.value || '',
+                    documento: wrapper.querySelector('#documento')?.value || '',
+                    telefono: wrapper.querySelector('#telefono')?.value || '',
+                    correo: wrapper.querySelector('#correo')?.value || '',
+                    placa: wrapper.querySelector('#placa')?.value || '',
+                    marca: wrapper.querySelector('#marca')?.value || '',
+                    color: wrapper.querySelector('#color')?.value || '',
+                    km: wrapper.querySelector('#km')?.value || '',
+                    seguroVence: wrapper.querySelector('#seguro-vence')?.value || '',
+                    tecnicoVence: wrapper.querySelector('#tecnico-vence')?.value || '',
+                    combustible: wrapper.querySelector('input[name="combustible"]:checked')?.value || '',
+                    descripcionFalla: wrapper.querySelector('#descripcion-falla')?.value || '',
+                    diagramaNotas: JSON.stringify(diagramNotes),
+                    signatureClient: document.getElementById('signatureClientIngreso')?.toDataURL('image/png') || '',
+                    signatureResponsible: document.getElementById('signatureResponsibleIngreso')?.toDataURL('image/png') || ''
+                };
+
+                wrapper.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+                    const mappedKey = checkboxMapping[checkbox.value];
+                    if (mappedKey) {
+                        formData[mappedKey] = checkbox.checked ? 'Sí' : 'No';
+                    }
+                });
+
+                try {
+                    await fetch(scriptUrl, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formData)
+                    });
+
+                    alert('Formulario enviado con éxito.');
+                    form.reset();
+                    diagramNotes = [];
+                    renderDiagramNotes();
+                    clearSignature('signatureClientIngreso');
+                    clearSignature('signatureResponsibleIngreso');
+                } catch (error) {
+                    console.error('Error al enviar el formulario de ingreso:', error);
+                    alert('Hubo un error al enviar el formulario.');
+                } finally {
+                    sendButton.textContent = defaultText;
+                    sendButton.disabled = false;
+                }
+            });
+        }
+    }
+
+    function setupEntregaForm() {
+        const wrapper = document.getElementById('form-entrega');
+        const form = document.getElementById('entregaForm');
+        if (!wrapper || !form) return;
+
+        function setToday(input) {
+            if (!input) return;
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            input.value = `${yyyy}-${mm}-${dd}`;
+        }
+
+        const deliveryDateInput = wrapper.querySelector('#deliveryDate');
+        setToday(deliveryDateInput);
+
+        const serviceCategorySelect = wrapper.querySelector('#serviceCategory');
+        const serviceSections = wrapper.querySelectorAll('.service-options');
+
+        if (serviceCategorySelect) {
+            serviceCategorySelect.addEventListener('change', () => {
+                serviceSections.forEach(section => {
+                    section.style.display = 'none';
+                });
+                const selectedValue = serviceCategorySelect.value;
+                if (selectedValue) {
+                    const target = wrapper.querySelector(`#${selectedValue}_services`);
+                    if (target) {
+                        target.style.display = 'block';
+                    }
+                }
+            });
+        }
+
+        wrapper.querySelectorAll('.otros-check').forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                const textInputId = checkbox.id.replace('_check', '_text');
+                const textInput = wrapper.querySelector(`#${textInputId}`);
+                if (textInput) {
+                    textInput.style.display = checkbox.checked ? 'block' : 'none';
+                    if (!checkbox.checked) {
+                        textInput.value = '';
+                    }
+                }
+            });
+        });
+
+        const selectedServicesList = wrapper.querySelector('#selectedServicesList');
+
+        function updateSelectedServices() {
+            if (!selectedServicesList) return;
+            selectedServicesList.innerHTML = '';
+            const checkedServices = wrapper.querySelectorAll('input[name="service"]:checked');
+
+            checkedServices.forEach(checkbox => {
+                let serviceName = checkbox.value;
+                if (checkbox.value === 'Otros') {
+                    const textInputId = checkbox.id.replace('_check', '_text');
+                    const textInput = wrapper.querySelector(`#${textInputId}`);
+                    if (textInput && textInput.value.trim() !== '') {
+                        serviceName = textInput.value.trim();
+                    } else {
+                        serviceName = '';
+                    }
+                }
+
+                if (serviceName) {
+                    const tag = document.createElement('span');
+                    tag.className = 'service-tag';
+                    tag.textContent = serviceName;
+                    tag.title = 'Click para eliminar';
+                    tag.addEventListener('click', () => {
+                        checkbox.checked = false;
+                        if (checkbox.value === 'Otros') {
+                            const textInputId = checkbox.id.replace('_check', '_text');
+                            const textInput = wrapper.querySelector(`#${textInputId}`);
+                            if (textInput) {
+                                textInput.value = '';
+                                textInput.style.display = 'none';
+                            }
+                        }
+                        checkbox.dispatchEvent(new Event('change'));
+                        updateSelectedServices();
+                    });
+                    selectedServicesList.appendChild(tag);
+                }
+            });
+        }
+
+        wrapper.querySelectorAll('input[name="service"]').forEach(checkbox => {
+            checkbox.addEventListener('change', updateSelectedServices);
+        });
+
+        wrapper.querySelectorAll('.otros-text-input').forEach(input => {
+            input.addEventListener('input', updateSelectedServices);
+        });
+
+        updateSelectedServices();
+
+        const selectedDeliveryItems = new Set();
+        const deliveryItemSelect = wrapper.querySelector('#deliveryItemSelect');
+        const otrosDeliveryInput = wrapper.querySelector('#delivery_item_otros_text');
+        const addDeliveryItemBtn = wrapper.querySelector('#addDeliveryItemBtn');
+        const selectedDeliveryItemsList = wrapper.querySelector('#selectedDeliveryItemsList');
+
+        function renderDeliveryItems() {
+            if (!selectedDeliveryItemsList) return;
+            selectedDeliveryItemsList.innerHTML = '';
+            selectedDeliveryItems.forEach(item => {
+                const tag = document.createElement('span');
+                tag.className = 'service-tag';
+                tag.textContent = item;
+                tag.title = 'Click para eliminar';
+                tag.addEventListener('click', () => {
+                    selectedDeliveryItems.delete(item);
+                    renderDeliveryItems();
+                });
+                selectedDeliveryItemsList.appendChild(tag);
+            });
+        }
+
+        if (deliveryItemSelect) {
+            deliveryItemSelect.addEventListener('change', () => {
+                if (deliveryItemSelect.value === 'Otros') {
+                    if (otrosDeliveryInput) {
+                        otrosDeliveryInput.style.display = 'block';
+                    }
+                } else if (otrosDeliveryInput) {
+                    otrosDeliveryInput.style.display = 'none';
+                    otrosDeliveryInput.value = '';
+                }
+            });
+        }
+
+        if (addDeliveryItemBtn) {
+            addDeliveryItemBtn.addEventListener('click', () => {
+                let itemToAdd = '';
+                const selectedValue = deliveryItemSelect?.value;
+
+                if (selectedValue === 'Otros') {
+                    itemToAdd = (otrosDeliveryInput?.value || '').trim();
+                } else if (selectedValue) {
+                    itemToAdd = selectedValue;
+                }
+
+                if (itemToAdd) {
+                    selectedDeliveryItems.add(itemToAdd);
+                    renderDeliveryItems();
+                }
+
+                if (deliveryItemSelect) {
+                    deliveryItemSelect.value = '';
+                }
+                if (otrosDeliveryInput) {
+                    otrosDeliveryInput.value = '';
+                    otrosDeliveryInput.style.display = 'none';
+                }
+            });
+        }
+
+        renderDeliveryItems();
+
+        wrapper.querySelectorAll('.signature-pad').forEach(canvas => {
+            const ctx = canvas.getContext('2d');
+            let drawing = false;
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = 'black';
+
+            function getMousePos(evt) {
+                const rect = canvas.getBoundingClientRect();
+                return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
+            }
+
+            function getTouchPos(touch) {
+                const rect = canvas.getBoundingClientRect();
+                return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+            }
+
+            canvas.addEventListener('mousedown', e => {
+                drawing = true;
+                const pos = getMousePos(e);
+                ctx.beginPath();
+                ctx.moveTo(pos.x, pos.y);
+            });
+
+            canvas.addEventListener('mousemove', e => {
+                if (!drawing) return;
+                const pos = getMousePos(e);
+                ctx.lineTo(pos.x, pos.y);
+                ctx.stroke();
+            });
+
+            canvas.addEventListener('mouseup', () => {
+                drawing = false;
+                ctx.closePath();
+            });
+
+            canvas.addEventListener('mouseout', () => {
+                if (drawing) {
+                    drawing = false;
+                    ctx.closePath();
+                }
+            });
+
+            canvas.addEventListener('touchstart', e => {
+                e.preventDefault();
+                drawing = true;
+                const touch = e.touches[0];
+                const pos = getTouchPos(touch);
+                ctx.beginPath();
+                ctx.moveTo(pos.x, pos.y);
+            });
+
+            canvas.addEventListener('touchmove', e => {
+                e.preventDefault();
+                if (!drawing) return;
+                const touch = e.touches[0];
+                const pos = getTouchPos(touch);
+                ctx.lineTo(pos.x, pos.y);
+                ctx.stroke();
+            });
+
+            canvas.addEventListener('touchend', () => {
+                drawing = false;
+                ctx.closePath();
+            });
+        });
+
+        const sendButton = wrapper.querySelector('#sendButtonEntrega');
+        if (sendButton) {
+            const defaultText = sendButton.dataset.defaultText || 'Enviar';
+            sendButton.addEventListener('click', async () => {
+                sendButton.textContent = 'Enviando...';
+                sendButton.disabled = true;
+
+                const formData = {
+                    tipoFormulario: 'entrega',
+                    deliveryDate: wrapper.querySelector('#deliveryDate')?.value || '',
+                    quoteNumber: wrapper.querySelector('#quoteNumber')?.value || '',
+                    clientName: wrapper.querySelector('#clientName')?.value || '',
+                    clientId: wrapper.querySelector('#clientId')?.value || '',
+                    clientAddress: wrapper.querySelector('#clientAddress')?.value || '',
+                    clientPhone: wrapper.querySelector('#clientPhone')?.value || '',
+                    clientEmail: wrapper.querySelector('#clientEmail')?.value || '',
+                    vehicleMake: wrapper.querySelector('#vehicleMake')?.value || '',
+                    vehicleLine: wrapper.querySelector('#vehicleLine')?.value || '',
+                    vehicleModel: wrapper.querySelector('#vehicleModel')?.value || '',
+                    vehicleColor: wrapper.querySelector('#vehicleColor')?.value || '',
+                    vehiclePlate: wrapper.querySelector('#vehiclePlate')?.value || '',
+                    vehicleKm: wrapper.querySelector('#vehicleKm')?.value || '',
+                    vehicleVin: wrapper.querySelector('#vehicleVin')?.value || '',
+                    vehicleEngineNum: wrapper.querySelector('#vehicleEngineNum')?.value || '',
+                    serviceObservations: wrapper.querySelector('#serviceObservations')?.value || '',
+                    deliveryCondition: wrapper.querySelector('#deliveryCondition')?.value || '',
+                    selectedServices: Array.from(wrapper.querySelectorAll('#selectedServicesList .service-tag')).map(tag => tag.textContent).join(', '),
+                    selectedDeliveryItems: Array.from(wrapper.querySelectorAll('#selectedDeliveryItemsList .service-tag')).map(tag => tag.textContent).join(', '),
+                    signatureClient: document.getElementById('signatureClientEntrega')?.toDataURL('image/png') || '',
+                    signatureResponsible: document.getElementById('signatureResponsibleEntrega')?.toDataURL('image/png') || ''
+                };
+
+                try {
+                    await fetch(scriptUrl, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formData)
+                    });
+
+                    alert('Formulario enviado con éxito. Revisa tu Google Sheet.');
+                    form.reset();
+                    setToday(deliveryDateInput);
+                    serviceSections.forEach(section => {
+                        section.style.display = 'none';
+                    });
+                    selectedServicesList.innerHTML = '';
+                    selectedDeliveryItems.clear();
+                    renderDeliveryItems();
+                    if (otrosDeliveryInput) {
+                        otrosDeliveryInput.value = '';
+                        otrosDeliveryInput.style.display = 'none';
+                    }
+                    wrapper.querySelectorAll('.otros-text-input').forEach(input => {
+                        input.value = '';
+                        input.style.display = 'none';
+                    });
+                    clearSignature('signatureClientEntrega');
+                    clearSignature('signatureResponsibleEntrega');
+                } catch (error) {
+                    console.error('Error al enviar el formulario de entrega:', error);
+                    alert('Hubo un error al enviar el formulario. Por favor, inténtalo de nuevo.');
+                } finally {
+                    sendButton.textContent = defaultText;
+                    sendButton.disabled = false;
+                }
+            });
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        setupIngresoForm();
+        setupEntregaForm();
+        mostrarFormulario('ingreso');
+    });
+</script>
+</body>
+</html>
