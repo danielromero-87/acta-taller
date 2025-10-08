@@ -99,3 +99,36 @@ Para gestionar el código de este proyecto y subirlo a un repositorio en GitHub,
 *   **Backend Apps Script**: `Code.gs` implementa la función `doPost(e)` que orquesta el guardado en las hojas `Actas_Ingreso` y `Actas_Entrega`.
 *   **Diagramas y firmas**: El diagrama del vehículo usa un `<map>` actualizado con zonas interactivas y el almacenamiento de firmas se realiza en `<canvas>` dentro del mismo HTML.
 *   **Último commit de referencia**: `docs: registrar estado tras unificacion` (consulta `git log -1 --oneline` para obtener el hash exacto). El commit anterior clave fue `92a95e5 feat: integrar actas en pagina unificada`.
+
+
+## 6. Historial de problemas y soluciones recientes
+
+### 6.1 Enlace de despliegue correcto
+- **Problema detectado:** el formulario unificado `taller-actas-87.html` conservaba el marcador `TU_DEPLOY_ID`, por lo que las peticiones `POST` nunca alcanzaban el Apps Script publicado.
+- **Solución aplicada:** se reemplazó el marcador por el endpoint real `https://script.google.com/macros/s/AKfycby9Kb_Ot1Ss9WQbPT7dUiTjic3cg-84HXjynL3y1Jt9b7nTUgiocxYZnxjqHSmzW2A/exec` y se instruyó a redeployar el Web App tras cada cambio.
+- **Resultado:** los formularios de ingreso y entrega envían datos correctamente al backend.
+
+### 6.2 Vinculación con la hoja de cálculo
+- **Problema detectado:** el script `Code.gs` todavía usaba el marcador `TU_ID_DE_GOOGLE_SHEET`, por lo que las ejecuciones fallaban al intentar abrir la hoja.
+- **Solución aplicada:** se introdujo el ID real `11jWB0BdgNeKomlsA8iJNMaVUecg48Adv-5-bQLNpKy0` y se documentó cómo encontrarlo en la URL de Google Sheets.
+- **Resultado:** los envíos se almacenan en las pestañas `Actas_Ingreso` y `Actas_Entrega` del libro correcto.
+
+### 6.3 Normalización de encabezados y orden de columnas
+- **Problema detectado:** los encabezados se guardaban con claves mezcladas (camelCase, español/inglés y `timestamp` al final) y las firmas aparecían en medio del dataset.
+- **Solución aplicada:** se creó un mapeo explícito `COLUMN_NAME_MAP` en `Code.gs` que:
+  - convierte todas las claves a mayúsculas en español;
+  - añade `FECHA_REGISTRO` al inicio de cada fila;
+  - reordena las columnas para ubicar `DIAGRAMA`, `DESCRIPCION_FALLA`, `FIRMA_CLIENTE` y `FIRMA_RESPONSABLE` inmediatamente después de `MUY_SUCIO`.
+- **Resultado:** la hoja queda homogeneizada y lista para filtros, tablas dinámicas o integraciones externas.
+
+### 6.4 Formato legible del diagrama de daños
+- **Problema detectado:** el campo `diagramaNotas` se almacenaba como JSON bruto, dificultando su lectura en Google Sheets.
+- **Solución aplicada:** se agregó la función `formatDiagramNotes` que transforma cada entrada en el patrón `Parte: descripción` separado por `|`, garantizando legibilidad sin perder contexto.
+- **Resultado:** el personal del taller puede interpretar rápidamente los daños registrados desde la hoja.
+
+### 6.5 Flujo recomendado tras cada cambio
+1. Guardar los cambios en Apps Script (`Code.gs`).
+2. Publicar una nueva versión del Web App (Manage deployments → Edit → New version → Deploy).
+3. Recargar `taller-actas-87.html` y enviar formularios de prueba para confirmar el guardado en Sheets.
+
+Estas notas sirven como bitácora de las incidencias recientes y facilitan futuras operaciones de mantenimiento.
