@@ -253,6 +253,38 @@
             margin-top: 32px;
         }
 
+        .submission-toast {
+            position: fixed;
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-20px);
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-weight: 600;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            z-index: 1000;
+            color: #fff;
+            text-align: center;
+            min-width: 240px;
+        }
+
+        .submission-toast.success {
+            background: #24a873;
+            box-shadow: 0 12px 30px rgba(36, 168, 115, 0.25);
+        }
+
+        .submission-toast.error {
+            background: #d64545;
+            box-shadow: 0 12px 30px rgba(214, 69, 69, 0.25);
+        }
+
+        .submission-toast.visible {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
         .selected-services-container {
             display: flex;
             flex-wrap: wrap;
@@ -846,8 +878,53 @@
     </section>
 </main>
 
+<div id="submissionToast" class="submission-toast" role="status" aria-live="polite"></div>
+
 <script>
     const scriptUrl = 'https://script.google.com/macros/s/AKfycby9Kb_Ot1Ss9WQbPT7dUiTjic3cg-84HXjynL3y1Jt9b7nTUgiocxYZnxjqHSmzW2A/exec';
+
+    function resetViewForNewForm(form) {
+        if (!form) return;
+        if (typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
+            try {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } catch (err) {
+                window.scrollTo(0, 0);
+            }
+        }
+        const firstField = form.querySelector('input, select, textarea');
+        if (firstField) {
+            firstField.focus();
+        }
+    }
+
+    let toastTimeoutId = null;
+
+    function showConfirmationToast(message, type = 'success') {
+        const toast = document.getElementById('submissionToast');
+        if (!toast) return;
+        toast.textContent = message;
+        toast.classList.remove('success', 'error');
+        const toastType = type === 'error' ? 'error' : 'success';
+        toast.classList.add(toastType, 'visible');
+        if (toastTimeoutId) {
+            clearTimeout(toastTimeoutId);
+        }
+        toastTimeoutId = setTimeout(() => {
+            toast.classList.remove('visible', 'success', 'error');
+            toastTimeoutId = null;
+        }, 3500);
+    }
+
+    function hideConfirmationToast() {
+        const toast = document.getElementById('submissionToast');
+        if (!toast) return;
+        toast.classList.remove('visible', 'success', 'error');
+        if (toastTimeoutId) {
+            clearTimeout(toastTimeoutId);
+            toastTimeoutId = null;
+        }
+    }
 
     function mostrarFormulario(tipo) {
         const wrappers = document.querySelectorAll('.form-wrapper');
@@ -860,6 +937,8 @@
         buttons.forEach(btn => {
             btn.classList.toggle('active', btn.dataset.form === tipo);
         });
+
+        hideConfirmationToast();
     }
 
     function clearSignature(canvasId) {
@@ -1093,6 +1172,7 @@
             sendButton.addEventListener('click', async () => {
                 sendButton.textContent = 'Enviando...';
                 sendButton.disabled = true;
+                hideConfirmationToast();
 
                 const checkboxMapping = {
                     "Tapa combustible": "tapaCombustible", "Stop": "stop", "Cenicero": "cenicero", "Encendedor": "encendedor",
@@ -1142,15 +1222,16 @@
                         body: JSON.stringify(formData)
                     });
 
-                    alert('Formulario enviado con éxito.');
                     form.reset();
                     diagramNotes = [];
                     renderDiagramNotes();
                     clearSignature('signatureClientIngreso');
                     clearSignature('signatureResponsibleIngreso');
+                    showConfirmationToast('Acta de ingreso enviada');
+                    resetViewForNewForm(form);
                 } catch (error) {
                     console.error('Error al enviar el formulario de ingreso:', error);
-                    alert('Hubo un error al enviar el formulario.');
+                    showConfirmationToast('No se pudo enviar el acta de ingreso. Inténtalo de nuevo.', 'error');
                 } finally {
                     sendButton.textContent = defaultText;
                     sendButton.disabled = false;
@@ -1395,6 +1476,7 @@
             sendButton.addEventListener('click', async () => {
                 sendButton.textContent = 'Enviando...';
                 sendButton.disabled = true;
+                hideConfirmationToast();
 
                 const formData = {
                     tipoFormulario: 'entrega',
@@ -1429,7 +1511,6 @@
                         body: JSON.stringify(formData)
                     });
 
-                    alert('Formulario enviado con éxito. Revisa tu Google Sheet.');
                     form.reset();
                     setToday(deliveryDateInput);
                     serviceSections.forEach(section => {
@@ -1448,9 +1529,11 @@
                     });
                     clearSignature('signatureClientEntrega');
                     clearSignature('signatureResponsibleEntrega');
+                    showConfirmationToast('Acta de entrega enviada');
+                    resetViewForNewForm(form);
                 } catch (error) {
                     console.error('Error al enviar el formulario de entrega:', error);
-                    alert('Hubo un error al enviar el formulario. Por favor, inténtalo de nuevo.');
+                    showConfirmationToast('No se pudo enviar el acta de entrega. Inténtalo de nuevo.', 'error');
                 } finally {
                     sendButton.textContent = defaultText;
                     sendButton.disabled = false;

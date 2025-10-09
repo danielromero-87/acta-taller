@@ -47,6 +47,7 @@ El flujo de trabajo del sistema se divide en dos procesos principales: el ingres
     *   Describe la falla reportada por el cliente o el trabajo a realizar.
     *   El cliente y el técnico firman digitalmente en los recuadros de firma (`<canvas>`).
     *   Al pulsar "Enviar", el JavaScript del navegador recopila todos los datos (incluyendo las notas del diagrama como un texto JSON y las firmas como imágenes Base64) y los envía al backend único de Google Apps Script junto con `tipoFormulario: "ingreso"`.
+    *   Tras el envío se muestra un aviso flotante en la parte superior confirmando el éxito o indicando el error, evitando los `alert()` del navegador y dejando la página lista para registrar otro vehículo.
 
 2.  **Flujo de Entrega (`taller-actas-87.html`, sección Entrega)**:
     *   Cuando el trabajo ha finalizado, el técnico abre este segundo formulario.
@@ -54,7 +55,7 @@ El flujo de trabajo del sistema se divide en dos procesos principales: el ingres
     *   Selecciona los servicios que se realizaron de una lista de categorías dinámicas. Los servicios seleccionados aparecen como "etiquetas" para una fácil visualización.
     *   Añade observaciones finales sobre el servicio.
     *   El cliente y el técnico vuelven a firmar para confirmar la entrega y la conformidad.
-    *   Al pulsar "Enviar", JavaScript recopila toda la información y la envía al mismo endpoint de Google Apps Script con `tipoFormulario: "entrega"`.
+    *   Al pulsar "Enviar", JavaScript recopila toda la información y la envía al mismo endpoint de Google Apps Script con `tipoFormulario: "entrega"`, mostrando el mismo aviso flotante de confirmación.
 
 ### Backend (Lo que pasa en el servidor de Google)
 
