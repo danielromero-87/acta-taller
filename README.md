@@ -21,7 +21,8 @@ El sistema está construido con tecnologías web estándar y aprovecha el ecosis
     *   **JavaScript (Vanilla JS)**: Para toda la lógica del lado del cliente, incluyendo el selector de formularios, la interactividad de cada flujo, la manipulación del DOM, la creación de los diagramas de daños con SVG y la captura de firmas digitales en elementos `<canvas>`. No se utilizan frameworks externos como React o Angular.
 
 *   **Backend**:
-    *   **Google Apps Script**: Un único endpoint (`Code.gs`) despliega la aplicación web y decide en qué pestaña del Google Sheets guardar cada envío según el `tipoFormulario` recibido (`ingreso` o `entrega`).
+*   **Google Apps Script**: Un único endpoint (`Code.gs`) despliega la aplicación web y decide en qué pestaña del Google Sheets guardar cada envío según el `tipoFormulario` recibido (`ingreso` o `entrega`).
+    *   Además, el backend dispara correos de confirmación al cliente (dirección escrita en el formulario) y copia oculta a los correos internos definidos en `INTERNAL_RECIPIENTS`.
 
 *   **Base de Datos**:
     *   **Google Sheets**: Actúa como la base de datos del sistema. Cada envío de formulario (tanto de ingreso como de entrega) se guarda como una nueva fila en una hoja de cálculo de Google, permitiendo un fácil acceso y gestión de los registros.
@@ -65,6 +66,7 @@ El flujo de trabajo del sistema se divide en dos procesos principales: el ingres
     *   Si la pestaña no existe, la crea dinámicamente y escribe los encabezados con las claves recibidas.
     *   Garantiza que todas las columnas de la hoja contengan los encabezados necesarios, agregando columnas nuevas cuando el frontend envía campos adicionales.
     *   Adjunta un `timestamp` y agrega la fila al final de la hoja. En esta fase todavía no se procesan firmas ni se generan PDFs; el código está preparado para extenderse con esas funciones más adelante si se requiere.
+    *   Envía un correo al cliente con el resumen del acta y copia a los correos internos configurados, manteniendo trazabilidad automática.
 
 ## 4. Control de Versiones con Git
 
@@ -98,6 +100,7 @@ Para gestionar el código de este proyecto y subirlo a un repositorio en GitHub,
 
 *   **HTML unificado**: `taller-actas-87.html` contiene la página completa con ambos formularios, los estilos responsive y toda la lógica JavaScript del frontend.
 *   **Backend Apps Script**: `Code.gs` implementa la función `doPost(e)` que orquesta el guardado en las hojas `Actas_Ingreso` y `Actas_Entrega`.
+    *   Variables clave a ajustar: `INTERNAL_RECIPIENTS` (lista de correos internos que recibirán copia) y `EMAIL_SENDER_NAME` (nombre que verá el destinatario).
 *   **Diagramas y firmas**: El diagrama del vehículo usa un `<map>` actualizado con zonas interactivas y el almacenamiento de firmas se realiza en `<canvas>` dentro del mismo HTML.
 *   **Último commit de referencia**: `docs: registrar estado tras unificacion` (consulta `git log -1 --oneline` para obtener el hash exacto). El commit anterior clave fue `92a95e5 feat: integrar actas en pagina unificada`.
 

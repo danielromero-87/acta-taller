@@ -21,7 +21,8 @@ El sistema está construido con tecnologías web estándar y aprovecha el ecosis
     *   **JavaScript (Vanilla JS)**: Para toda la lógica del lado del cliente, incluyendo el selector de formularios, la interactividad de cada flujo, la manipulación del DOM, la creación de los diagramas de daños con SVG y la captura de firmas digitales en elementos `<canvas>`. No se utilizan frameworks externos como React o Angular.
 
 *   **Backend**:
-    *   **Google Apps Script**: Un único endpoint (`Code.gs`) despliega la aplicación web y decide en qué pestaña del Google Sheets guardar cada envío según el `tipoFormulario` recibido (`ingreso` o `entrega`).
+*   **Google Apps Script**: Un único endpoint (`Code.gs`) despliega la aplicación web y decide en qué pestaña del Google Sheets guardar cada envío según el `tipoFormulario` recibido (`ingreso` o `entrega`).
+    *   Adicionalmente, el backend envía correos de confirmación al cliente y copia a los correos internos definidos en `INTERNAL_RECIPIENTS` para mantener la trazabilidad.
 
 *   **Base de Datos**:
     *   **Google Sheets**: Actúa como la base de datos del sistema. Cada envío de formulario (tanto de ingreso como de entrega) se guarda como una nueva fila en una hoja de cálculo de Google, permitiendo un fácil acceso y gestión de los registros.
@@ -65,6 +66,7 @@ El flujo de trabajo del sistema se divide en dos procesos principales: el ingres
     *   Si la pestaña no existe, la crea dinámicamente y escribe los encabezados con las claves recibidas.
     *   Garantiza que todas las columnas de la hoja contengan los encabezados necesarios, agregando columnas nuevas cuando el frontend envía campos adicionales.
     *   Adjunta un `timestamp` y agrega la fila al final de la hoja. En esta fase todavía no se procesan firmas ni se generan PDFs; el código está preparado para extenderse con esas funciones más adelante si se requiere.
+    *   Envía un correo al cliente (dirección indicada en el formulario) y copia al equipo interno configurado en `INTERNAL_RECIPIENTS`, con un resumen del acta.
 
 ## 4. Control de Versiones con Git
 

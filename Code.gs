@@ -1,4 +1,9 @@
 const SHEET_ID = '11jWB0BdgNeKomlsA8iJNMaVUecg48Adv-5-bQLNpKy0';
+const EMAIL_SENDER_NAME = '8/7 Autos';
+const INTERNAL_RECIPIENTS = [
+  'taller@87autos.com',
+  'soporte@87autos.com'
+];
 
 const COLUMN_NAME_MAP = {
   tipoFormulario: 'TIPO_FORMULARIO',
@@ -97,6 +102,12 @@ function doPost(e) {
     const row = headers.map(header => header === 'FECHA_REGISTRO' ? normalizedData[header] : (normalizedData[header] !== undefined ? normalizedData[header] : ''));
     sheet.appendRow(row);
 
+    try {
+      sendNotificationEmails(payload, normalizedData, formType);
+    } catch (emailError) {
+      console.error('No se pudo enviar la notificación por correo: ' + emailError);
+    }
+
     return ContentService
       .createTextOutput(JSON.stringify({ status: 'success' }))
       .setMimeType(ContentService.MimeType.JSON);
@@ -106,6 +117,151 @@ function doPost(e) {
       .createTextOutput(JSON.stringify({ status: 'error', message }))
       .setMimeType(ContentService.MimeType.JSON);
   }
+}
+
+function sendNotificationEmails(rawPayload, normalizedData, formType) {
+  const internalRecipients = (INTERNAL_RECIPIENTS || [])
+    .map(email => (typeof email === 'string' ? email.trim() : ''))
+    .filter(isValidEmail);
+
+  const clientEmailCandidate = formType === 'ingreso'
+    ? (rawPayload.correo || rawPayload.clientEmail || '')
+    : (rawPayload.clientEmail || rawPayload.correo || '');
+  const clientEmail = isValidEmail(clientEmailCandidate) ? clientEmailCandidate.trim() : '';
+
+  if (!clientEmail && internalRecipients.length === 0) {
+    return;
+  }
+
+  const scriptTimezone = Session.getScriptTimeZone() || 'America/Bogota';
+  const registro = normalizedData.FECHA_REGISTRO instanceof Date
+    ? Utilities.formatDate(normalizedData.FECHA_REGISTRO, scriptTimezone, 'yyyy-MM-dd HH:mm')
+    : Utilities.formatDate(new Date(), scriptTimezone, 'yyyy-MM-dd HH:mm');
+
+  const plate = rawPayload.placa || rawPayload.vehiclePlate || 'sin placa';
+  const subject = `[8/7 Autos] Acta de ${formType === 'ingreso' ? 'Ingreso' : 'Entrega'} - ${plate}`;
+
+  const summaryRows = buildSummaryRows(rawPayload, formType, registro);
+  const htmlBody = buildHtmlBody(summaryRows, formType);
+  const textBody = buildPlainBody(summaryRows, formType);
+
+  let to = clientEmail;
+  let bccList = internalRecipients;
+
+  if (!clientEmail) {
+    to = internalRecipients[0];
+    bccList = internalRecipients.slice(1);
+  }
+
+  MailApp.sendEmail({
+    to,
+    subject,
+    name: EMAIL_SENDER_NAME,
+    htmlBody,
+    body: textBody,
+    bcc: bccList.length ? bccList.join(',') : undefined,
+    noReply: true
+  });
+}
+
+function buildSummaryRows(rawPayload, formType, registro) {
+  const baseRows = [
+    ['Fecha de registro', registro],
+    ['Formulario', formType === 'ingreso' ? 'Acta de ingreso' : 'Acta de entrega']
+  ];
+
+  if (formType === 'ingreso') {
+    baseRows.push(
+      ['Propietario', rawPayload.propietario || ''],
+      ['Documento', rawPayload.documento || ''],
+      ['Teléfono', rawPayload.telefono || ''],
+      ['Correo', rawPayload.correo || ''],
+      ['Placa', rawPayload.placa || ''],
+      ['Marca', rawPayload.marca || ''],
+      ['Color', rawPayload.color || ''],
+      ['Kilometraje', rawPayload.km || ''],
+      ['Descripción / falla reportada', rawPayload.descripcionFalla || ''],
+      ['Objetos inventariados', resumenInventario(rawPayload)]
+    );
+  } else {
+    baseRows.push(
+      ['Cliente', rawPayload.clientName || rawPayload.propietario || ''],
+      ['Documento', rawPayload.clientId || ''],
+      ['Teléfono', rawPayload.clientPhone || ''],
+      ['Correo', rawPayload.clientEmail || rawPayload.correo || ''],
+      ['Placa', rawPayload.vehiclePlate || rawPayload.placa || ''],
+      ['Marca', rawPayload.vehicleMake || ''],
+      ['Línea', rawPayload.vehicleLine || ''],
+      ['Modelo', rawPayload.vehicleModel || ''],
+      ['Servicios realizados', rawPayload.selectedServices || ''],
+      ['Elementos entregados', rawPayload.selectedDeliveryItems || ''],
+      ['Condición de entrega', rawPayload.deliveryCondition || ''],
+      ['Observaciones', rawPayload.serviceObservations || '']
+    );
+  }
+
+  return baseRows.filter(row => row && (row[1] || '').toString().trim() !== '');
+}
+
+function buildHtmlBody(rows, formType) {
+  const intro = formType === 'ingreso'
+    ? 'Te compartimos el detalle del acta de ingreso registrada en 8/7 Autos:'
+    : 'Te compartimos el detalle del acta de entrega registrada en 8/7 Autos:';
+
+  const tableRows = rows.map(([label, value]) => {
+    const safeValue = value
+      .toString()
+      .replace(/\n/g, '<br>');
+    return `<tr><th align="left" style="padding:6px 8px;background:#f2f4ff;border-bottom:1px solid #d7def4;">${label}</th><td style="padding:6px 8px;border-bottom:1px solid #e4e8f7;">${safeValue}</td></tr>`;
+  }).join('');
+
+  return `
+    <div style="font-family:'Poppins',Arial,sans-serif;color:#273043;font-size:14px;">
+      <p>${intro}</p>
+      <table style="border-collapse:collapse;width:100%;max-width:640px;margin-top:12px;">
+        <tbody>
+          ${tableRows}
+        </tbody>
+      </table>
+      <p style="margin-top:16px;color:#808aa5;font-size:12px;">Este mensaje se genera de forma automática para efectos de trazabilidad.</p>
+    </div>
+  `;
+}
+
+function buildPlainBody(rows, formType) {
+  const intro = formType === 'ingreso'
+    ? 'Te compartimos el detalle del acta de ingreso registrada en 8/7 Autos:'
+    : 'Te compartimos el detalle del acta de entrega registrada en 8/7 Autos:';
+
+  const bodyLines = rows.map(([label, value]) => `${label}: ${value}`);
+  return [intro, '', ...bodyLines, '', 'Este mensaje se genera de forma automática para efectos de trazabilidad.'].join('\n');
+}
+
+function resumenInventario(rawPayload) {
+  const keys = [
+    'tapaCombustible', 'stop', 'cenicero', 'encendedor', 'antena', 'espejos', 'boceles',
+    'manijas', 'vidrios', 'frenoEstacionamiento', 'aireAcondicionado', 'elevavidrios',
+    'exploradoras', 'pernoSeguridad', 'herramientas', 'gato', 'manuales', 'certificadoGases',
+    'tarjetaPropiedad', 'lucesInstrumentos', 'lucesInteriores', 'volante', 'golpe', 'rayado',
+    'abolladura', 'limpio', 'sucio', 'muySucio'
+  ];
+
+  const presentes = keys
+    .filter(key => rawPayload[key] && rawPayload[key].toString().toLowerCase() === 'sí')
+    .map(key => key.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase()));
+
+  return presentes.length ? presentes.join(', ') : 'Sin cambios registrados';
+}
+
+function isValidEmail(value) {
+  if (typeof value !== 'string') {
+    return false;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return false;
+  }
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
 }
 
 function normalizePayload(payload) {
