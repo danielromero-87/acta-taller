@@ -1,8 +1,9 @@
 const SHEET_ID = '11jWB0BdgNeKomlsA8iJNMaVUecg48Adv-5-bQLNpKy0';
 const EMAIL_SENDER_NAME = '8/7 Autos';
 const INTERNAL_RECIPIENTS = [
-  'taller@87autos.com',
-  'soporte@87autos.com'
+  'john.rodriguez@87autos.com',
+  'asistente@87autos.com',
+  'felixochosiete@gmail.com'
 ];
 
 const COLUMN_NAME_MAP = {
