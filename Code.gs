@@ -6,6 +6,12 @@ const INTERNAL_RECIPIENTS = [
   'felixochosiete@gmail.com'
 ];
 
+const DOC_TEMPLATE_IDS = {
+  default: '18DTbB_ak1cXJiF7UqygSM4-AoaI1zzAAb0vJ59UAzDw',
+  ingreso: '18DTbB_ak1cXJiF7UqygSM4-AoaI1zzAAb0vJ59UAzDw',
+  entrega: '1OAO5OitkS30p06uW_0IweHCpFYS41H0GvZ-Na9PpRg4'
+};
+
 const COLUMN_NAME_MAP = {
   tipoFormulario: 'TIPO_FORMULARIO',
   fechaEntrega: 'FECHA_ENTREGA',
@@ -142,9 +148,8 @@ function sendNotificationEmails(rawPayload, normalizedData, formType) {
   const plate = rawPayload.placa || rawPayload.vehiclePlate || 'sin placa';
   const subject = `[8/7 Autos] Acta de ${formType === 'ingreso' ? 'Ingreso' : 'Entrega'} - ${plate}`;
 
-  const summaryRows = buildSummaryRows(rawPayload, formType, registro);
-  const htmlBody = buildHtmlBody(summaryRows, formType);
-  const textBody = buildPlainBody(summaryRows, formType);
+  const pdfInfo = generatePdfAttachment(formType, normalizedData, rawPayload, registro);
+  const emailBodies = buildEmailBodiesForPdf(formType, rawPayload, plate, registro, !!pdfInfo);
 
   let to = clientEmail;
   let bccList = internalRecipients;
@@ -158,11 +163,50 @@ function sendNotificationEmails(rawPayload, normalizedData, formType) {
     to,
     subject,
     name: EMAIL_SENDER_NAME,
-    htmlBody,
-    body: textBody,
+    htmlBody: emailBodies.html,
+    body: emailBodies.text,
     bcc: bccList.length ? bccList.join(',') : undefined,
+    attachments: pdfInfo ? [pdfInfo.blob] : undefined,
     noReply: true
   });
+}
+
+function buildEmailBodiesForPdf(formType, rawPayload, plate, registro, pdfGenerated) {
+  const customerName =
+    (formType === 'ingreso'
+      ? rawPayload.propietario || rawPayload.clientName
+      : rawPayload.clientName || rawPayload.propietario) || 'cliente';
+
+  const actaLabel = formType === 'ingreso' ? 'ingreso' : 'entrega';
+  const introHtml = `Hola ${customerName}, registramos el ${actaLabel} del vehículo ${plate} el ${registro}.`;
+  const introText = `Hola ${customerName}, registramos el ${actaLabel} del vehículo ${plate} el ${registro}.`;
+  const pdfParagraphHtml = pdfGenerated
+    ? 'Adjuntamos el acta en formato PDF para tu consulta y archivo personal.'
+    : 'No se pudo generar el PDF automáticamente; por favor contacta al equipo administrativo para obtenerlo.';
+  const pdfParagraphText = pdfGenerated
+    ? 'Adjuntamos el acta en formato PDF para tu consulta y archivo personal.'
+    : 'No se pudo generar el PDF automáticamente; por favor contacta al equipo administrativo para obtenerlo.';
+
+  const html = `
+    <div style="font-family:'Poppins',Arial,sans-serif;color:#273043;font-size:14px;line-height:1.6;">
+      <p>${introHtml}</p>
+      <p>${pdfParagraphHtml}</p>
+      <p>Gracias por confiar en 8/7 Autos.</p>
+      <p>Atentamente,<br>Equipo 8/7 Autos</p>
+    </div>
+  `;
+
+  const text = [
+    introText,
+    '',
+    pdfParagraphText,
+    '',
+    'Gracias por confiar en 8/7 Autos.',
+    'Atentamente,',
+    'Equipo 8/7 Autos'
+  ].join('\n');
+
+  return { html, text };
 }
 
 function buildSummaryRows(rawPayload, formType, registro) {
@@ -236,6 +280,208 @@ function buildPlainBody(rows, formType) {
 
   const bodyLines = rows.map(([label, value]) => `${label}: ${value}`);
   return [intro, '', ...bodyLines, '', 'Este mensaje se genera de forma automática para efectos de trazabilidad.'].join('\n');
+}
+
+function generatePdfAttachment(formType, normalizedData, rawPayload, registro) {
+  const templateId = (DOC_TEMPLATE_IDS && (DOC_TEMPLATE_IDS[formType] || DOC_TEMPLATE_IDS.default)) || '';
+  if (!templateId) {
+    console.warn('No hay plantilla de Google Docs configurada para ' + formType + '. Se omite la generación del PDF.');
+    return null;
+  }
+
+  try {
+    const templateFile = DriveApp.getFileById(templateId);
+    const fileName = buildActaFileName(formType, rawPayload, registro);
+
+    const editableCopy = templateFile.makeCopy(fileName + ' (editable)');
+    const doc = DocumentApp.openById(editableCopy.getId());
+    const templateData = buildTemplatePlaceholders(formType, normalizedData, rawPayload, registro);
+    const { placeholders, signatureBlobs } = templateData;
+    const body = doc.getBody();
+    applyTextPlaceholders(body, placeholders);
+    insertSignatureImages(body, signatureBlobs);
+    doc.saveAndClose();
+
+    const pdfBlob = editableCopy.getAs(MimeType.PDF).setName(fileName + '.pdf');
+    editableCopy.setTrashed(true);
+
+    return {
+      blob: pdfBlob,
+      fileName: pdfBlob.getName()
+    };
+  } catch (error) {
+    console.error('Error al generar el PDF para el formulario ' + formType + ': ' + error);
+    return null;
+  }
+}
+
+function buildTemplatePlaceholders(formType, normalizedData, rawPayload, registro) {
+  const timezone = Session.getScriptTimeZone() || 'America/Bogota';
+  const skipKeys = new Set(['FIRMA_CLIENTE', 'FIRMA_RESPONSABLE']);
+  const placeholders = {};
+
+  Object.keys(normalizedData).forEach(key => {
+    if (skipKeys.has(key)) {
+      return;
+    }
+    placeholders[key] = formatValueForTemplate(normalizedData[key], timezone);
+  });
+
+  placeholders.FECHA_REGISTRO = registro;
+  placeholders.FORMULARIO = formType === 'ingreso' ? 'Acta de ingreso' : 'Acta de entrega';
+  placeholders.PLACA = rawPayload.placa || rawPayload.vehiclePlate || placeholders.PLACA || '';
+  placeholders.NOMBRE_CLIENTE = rawPayload.clientName || rawPayload.propietario || placeholders.NOMBRE_CLIENTE || '';
+  placeholders.PROPIETARIO = rawPayload.propietario || placeholders.NOMBRE_CLIENTE || '';
+  placeholders.INVENTARIO_COMPLETO = resumenInventario(rawPayload);
+  placeholders.NOTAS_DEL_DIAGRAMA = placeholders.DIAGRAMA || '';
+  placeholders.DIAGRAMA_RESUMEN = placeholders.DIAGRAMA || '';
+
+  const signatureBlobs = {
+    signatureClientUrl: dataUrlToBlob(rawPayload.signatureClient, 'firma-cliente.png'),
+    signatureResponsibleUrl: dataUrlToBlob(rawPayload.signatureResponsible, 'firma-responsable.png')
+  };
+
+  const clientTokens = ['signatureClientUrl', 'signatureClient', 'firmaCliente', 'firmaClienteUrl'];
+  const responsibleTokens = ['signatureResponsibleUrl', 'signatureResponsible', 'firmaResponsable', 'firmaResponsableUrl'];
+
+  // If the raw payload included data URLs or URL tokens, keep their placeholder values
+  // so insertSignatureImages can find the placeholder and replace it with an inline image.
+  // Prefer explicit url fields if provided.
+  clientTokens.forEach(token => {
+    placeholders[token] = '';
+  });
+
+  responsibleTokens.forEach(token => {
+    placeholders[token] = '';
+  });
+
+  return { placeholders, signatureBlobs, clientTokens, responsibleTokens };
+}
+
+function applyTextPlaceholders(body, placeholders) {
+  Object.keys(placeholders).forEach(key => {
+    const value = placeholders[key] == null ? '' : String(placeholders[key]);
+    const variants = new Set([
+      key,
+      key.toLowerCase(),
+      key.replace(/_/g, ''),
+      toLowerCamel(key)
+    ]);
+
+    variants.forEach(token => {
+      if (!token) return;
+      const pattern = `\\{\\{\\s*${escapeRegExp(token)}\\s*\\}\\}`;
+      body.replaceText(pattern, value);
+    });
+  });
+}
+
+function insertSignatureImages(body, signatureBlobs) {
+  if (!signatureBlobs) {
+    return;
+  }
+
+  const mappings = [
+    {
+      placeholders: ['signatureClientUrl', 'signatureClient', 'firmaCliente', 'firmaClienteUrl'],
+      blob: signatureBlobs.signatureClientUrl
+    },
+    {
+      placeholders: ['signatureResponsibleUrl', 'signatureResponsible', 'firmaResponsable', 'firmaResponsableUrl'],
+      blob: signatureBlobs.signatureResponsibleUrl
+    }
+  ];
+
+  mappings.forEach(({ placeholders, blob }) => {
+    placeholders.forEach(placeholder => {
+      const regex = `\\{\\{\\s*${escapeRegExp(placeholder)}\\s*\\}\\}`;
+      let range = body.findText(regex);
+      while (range) {
+        const element = range.getElement().asText();
+        const start = range.getStartOffset();
+        const end = range.getEndOffsetInclusive();
+        element.deleteText(start, end);
+        if (blob) {
+          element.insertInlineImage(start, blob.copyBlob());
+        }
+        range = body.findText(regex, range);
+      }
+    });
+  });
+}
+
+function dataUrlToBlob(dataUrl, defaultName) {
+  if (!dataUrl || typeof dataUrl !== 'string') {
+    return null;
+  }
+  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) {
+    return null;
+  }
+  const contentType = match[1];
+  const bytes = Utilities.base64Decode(match[2]);
+  return Utilities.newBlob(bytes, contentType, defaultName || 'archivo.bin');
+}
+
+function buildActaFileName(formType, rawPayload, registro) {
+  const basePlate = (rawPayload.placa || rawPayload.vehiclePlate || 'SIN_PLACA')
+    .toString()
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9-]/g, '_');
+
+  const cleanTimestamp = registro.replace(/[^0-9]/g, '');
+  return `Acta-${formType === 'ingreso' ? 'Ingreso' : 'Entrega'}-${basePlate}-${cleanTimestamp}`;
+}
+
+function formatValueForTemplate(value, timezone) {
+  if (value == null) {
+    return '';
+  }
+
+  if (value instanceof Date) {
+    return Utilities.formatDate(value, timezone, 'yyyy-MM-dd HH:mm');
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map(item => formatValueForTemplate(item, timezone))
+      .filter(Boolean)
+      .join(', ');
+  }
+
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value);
+    } catch (err) {
+      return String(value);
+    }
+  }
+
+  return String(value);
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function toLowerCamel(value) {
+  if (!value) {
+    return '';
+  }
+  const lower = value.toLowerCase();
+  if (lower.indexOf('_') === -1) {
+    return lower;
+  }
+  return lower
+    .split('_')
+    .map((part, index) => {
+      if (index === 0) {
+        return part;
+      }
+      return part.charAt(0).toUpperCase() + part.slice(1);
+    })
+    .join('');
 }
 
 function resumenInventario(rawPayload) {
