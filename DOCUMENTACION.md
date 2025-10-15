@@ -108,7 +108,7 @@ Para gestionar el código de este proyecto y subirlo a un repositorio en GitHub,
 
 ### 6.1 Enlace de despliegue correcto
 - **Problema detectado:** el formulario unificado `taller-actas-87.html` conservaba el marcador `TU_DEPLOY_ID`, por lo que las peticiones `POST` nunca alcanzaban el Apps Script publicado.
-- **Solución aplicada:** se reemplazó el marcador por el endpoint real `https://script.google.com/macros/s/AKfycby9Kb_Ot1Ss9WQbPT7dUiTjic3cg-84HXjynL3y1Jt9b7nTUgiocxYZnxjqHSmzW2A/exec` y se instruyó a redeployar el Web App tras cada cambio.
+- **Solución aplicada:** se reemplazó el marcador por el endpoint real `https://script.google.com/macros/s/AKfycbw0rUlut6x910q-bG-523tUmgEPJxfSpCvXVs0D0eKmhbP3gx_dYfqYn3Z727MeCceA/exec` y se instruyó a redeployar el Web App tras cada cambio.
 - **Resultado:** los formularios de ingreso y entrega envían datos correctamente al backend.
 
 ### 6.2 Vinculación con la hoja de cálculo
