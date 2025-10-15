@@ -12,6 +12,11 @@ const DOC_TEMPLATE_IDS = {
   entrega: '1OAO5OitkS30p06uW_0IweHCpFYS41H0GvZ-Na9PpRg4'
 };
 
+const FOLDER_ID = ''; // Opcional: ID de la carpeta de Drive donde se almacenarán las firmas
+const SIGNATURE_STORAGE_MODE = 'BASE64'; // Valores soportados: 'DRIVE_URL', 'DRIVE_ID', 'BASE64'
+const CLIENT_SIGNATURE_PLACEHOLDER = '{{firma del cliente}}';
+const RESPONSIBLE_SIGNATURE_PLACEHOLDER = '{{firma del responsable}}';
+
 const COLUMN_NAME_MAP = {
   tipoFormulario: 'TIPO_FORMULARIO',
   fechaEntrega: 'FECHA_ENTREGA',
@@ -87,38 +92,98 @@ const CANONICAL_HEADERS = (function() {
   return new Set(headers);
 })();
 
+const CLIENT_SIGNATURE_RAW_KEYS = [
+  'signatureClient',
+  'signature_client',
+  'signatureClientUrl',
+  'signature_client_url',
+  'firmaCliente',
+  'firma_cliente',
+  'firmaClienteUrl',
+  'firma_cliente_url',
+  'signatureClientIngreso',
+  'signature_client_ingreso',
+  'firmaClienteIngreso',
+  'firma_cliente_ingreso',
+  'signatureClientEntrega',
+  'signature_client_entrega',
+  'firmaClienteEntrega',
+  'firma_cliente_entrega'
+];
+
+const RESPONSIBLE_SIGNATURE_RAW_KEYS = [
+  'signatureResponsible',
+  'signature_responsible',
+  'signatureResponsibleUrl',
+  'signature_responsible_url',
+  'firmaResponsable',
+  'firma_responsable',
+  'firmaResponsableUrl',
+  'firma_responsable_url',
+  'signatureResponsibleIngreso',
+  'signature_responsible_ingreso',
+  'firmaResponsableIngreso',
+  'firma_responsable_ingreso',
+  'signatureResponsibleEntrega',
+  'signature_responsible_entrega',
+  'firmaResponsableEntrega',
+  'firma_responsable_entrega'
+];
+
+const CLIENT_SIGNATURE_ALIASES = buildSignatureAliasData(CLIENT_SIGNATURE_RAW_KEYS);
+const RESPONSIBLE_SIGNATURE_ALIASES = buildSignatureAliasData(RESPONSIBLE_SIGNATURE_RAW_KEYS);
+
+/**
+ * Punto de entrada del webhook. Recibe el payload del formulario,
+ * guarda los datos en Sheets, procesa la firma y dispara el flujo de PDF + correo.
+ */
 function doPost(e) {
   try {
     if (!e || !e.postData || !e.postData.contents) {
-      throw new Error('Solicitud vacia o invalida.');
+      throw new Error('Solicitud vacía o inválida.');
     }
 
-    const payload = JSON.parse(e.postData.contents);
-    const formType = payload.tipoFormulario === 'entrega' ? 'entrega' : 'ingreso';
-    const normalizedData = normalizePayload(payload);
+    const rawPayload = JSON.parse(e.postData.contents);
+    const formType = rawPayload.tipoFormulario === 'entrega' ? 'entrega' : 'ingreso';
+    const scriptTimezone = Session.getScriptTimeZone() || 'America/Bogota';
+    const timestamp = new Date();
+    const registro = Utilities.formatDate(timestamp, scriptTimezone, 'yyyy-MM-dd HH:mm');
+
+    const clientSignature = processSignatureFromPayload(rawPayload, CLIENT_SIGNATURE_RAW_KEYS, 'cliente', timestamp);
+    const responsibleSignature = processSignatureFromPayload(rawPayload, RESPONSIBLE_SIGNATURE_RAW_KEYS, 'responsable', timestamp);
+
+    const normalizedData = normalizePayload(rawPayload);
+    normalizedData.FECHA_REGISTRO = timestamp;
 
     const spreadsheet = SpreadsheetApp.openById(SHEET_ID);
-    const sheetName = formType === 'ingreso' ? 'Actas_Ingreso' : 'Actas_Entrega';
+    const sheetName = formType === 'entrega' ? 'Actas_Entrega' : 'Actas_Ingreso';
+    const sheet = getOrCreateSheet(spreadsheet, sheetName);
 
-    let sheet = spreadsheet.getSheetByName(sheetName);
-    if (!sheet) {
-      sheet = spreadsheet.insertSheet(sheetName);
-    }
-
-    const headers = prepareHeaders(sheet, normalizedData, formType);
-    const row = headers.map(header => header === 'FECHA_REGISTRO' ? normalizedData[header] : (normalizedData[header] !== undefined ? normalizedData[header] : ''));
+    const headers = prepareHeaders(sheet, normalizedData);
+    const row = headers.map(header => {
+      if (header === 'FECHA_REGISTRO') {
+        return normalizedData[header];
+      }
+      return normalizedData[header] !== undefined ? normalizedData[header] : '';
+    });
     sheet.appendRow(row);
 
-    try {
-      sendNotificationEmails(payload, normalizedData, formType);
-    } catch (emailError) {
-      console.error('No se pudo enviar la notificación por correo: ' + emailError);
-    }
+    generatePdfAndSendEmail({
+      formType,
+      normalizedData,
+      rawPayload,
+      registro,
+      clientSignatureValue: clientSignature.storedValue,
+      clientSignatureBlob: clientSignature.blob,
+      responsibleSignatureValue: responsibleSignature.storedValue,
+      responsibleSignatureBlob: responsibleSignature.blob
+    });
 
     return ContentService
       .createTextOutput(JSON.stringify({ status: 'success' }))
       .setMimeType(ContentService.MimeType.JSON);
   } catch (error) {
+    console.error('Error en doPost:', error);
     const message = error instanceof Error ? error.message : String(error);
     return ContentService
       .createTextOutput(JSON.stringify({ status: 'error', message }))
@@ -126,51 +191,324 @@ function doPost(e) {
   }
 }
 
-function sendNotificationEmails(rawPayload, normalizedData, formType) {
-  const internalRecipients = (INTERNAL_RECIPIENTS || [])
-    .map(email => (typeof email === 'string' ? email.trim() : ''))
-    .filter(isValidEmail);
+/**
+ * Convierte los distintos alias de firma, la almacena (base64 o Drive)
+ * y devuelve el valor que se guardará en Sheets junto con el Blob para el PDF.
+ */
+function processSignatureFromPayload(payload, keys, prefix, timestamp) {
+  if (!keys || !keys.length) {
+    return { storedValue: '', blob: null };
+  }
+  let rawValue = '';
+  keys.some(key => {
+    if (payload && payload[key]) {
+      rawValue = payload[key];
+      return true;
+    }
+    return false;
+  });
 
-  const clientEmailCandidate = formType === 'ingreso'
-    ? (rawPayload.correo || rawPayload.clientEmail || '')
-    : (rawPayload.clientEmail || rawPayload.correo || '');
-  const clientEmail = isValidEmail(clientEmailCandidate) ? clientEmailCandidate.trim() : '';
+  const fallbackName = `firma-${prefix}-${Utilities.formatDate(timestamp, Session.getScriptTimeZone() || 'UTC', 'yyyyMMdd-HHmmss')}.png`;
+  const signatureData = normalizeSignatureValue(rawValue, fallbackName);
 
-  if (!clientEmail && internalRecipients.length === 0) {
+  keys.forEach((key, index) => {
+    if (index === 0) {
+      payload[key] = signatureData.storedValue || '';
+    } else {
+      delete payload[key];
+    }
+  });
+
+  return signatureData;
+}
+
+/**
+ * Normaliza una firma recibida en base64 o como ID/URL de Drive.
+ * Devuelve el valor que irá a Sheets y, si es posible, el Blob para el PDF.
+ */
+function normalizeSignatureValue(rawValue, fallbackFileName) {
+  if (!rawValue || typeof rawValue !== 'string') {
+    return { storedValue: '', blob: null };
+  }
+
+  const trimmed = rawValue.trim();
+  if (!trimmed) {
+    return { storedValue: '', blob: null };
+  }
+
+  if (trimmed.startsWith('data:image')) {
+    const blob = base64ToBlob(trimmed, fallbackFileName);
+    if (SIGNATURE_STORAGE_MODE === 'BASE64') {
+      return { storedValue: trimmed, blob };
+    }
+    const saved = saveSignatureToDrive(trimmed, fallbackFileName);
+    if (!saved || (!saved.id && !saved.url)) {
+      return { storedValue: trimmed, blob };
+    }
+    const storedValue = SIGNATURE_STORAGE_MODE === 'DRIVE_ID' ? saved.id : saved.url;
+    return {
+      storedValue,
+      blob: saved.blob || blob
+    };
+  }
+
+  return { storedValue: trimmed, blob: null };
+}
+
+/**
+ * Convierte una cadena base64 (data URL) en un Blob utilizable en Apps Script.
+ */
+function base64ToBlob(base64String, defaultName) {
+  if (!base64String || typeof base64String !== 'string') {
+    return null;
+  }
+  const match = base64String.match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) {
+    return null;
+  }
+  const contentType = match[1];
+  const bytes = Utilities.base64Decode(match[2]);
+  return Utilities.newBlob(bytes, contentType, defaultName || 'firma.png');
+}
+
+/**
+ * Guarda una firma en Drive y devuelve sus metadatos de acceso.
+ */
+function saveSignatureToDrive(base64Signature, filename) {
+  const blob = base64ToBlob(base64Signature, filename);
+  if (!blob) {
+    return { id: '', url: '', blob: null };
+  }
+  try {
+    const folder = getSignatureFolder();
+    const file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return {
+      id: file.getId(),
+      url: file.getUrl(),
+      blob: file.getBlob()
+    };
+  } catch (error) {
+    console.error('No se pudo guardar la firma en Drive:', error);
+    return { id: '', url: '', blob: null };
+  }
+}
+
+/**
+ * Devuelve el Blob de una firma almacenada en base64 o en Google Drive.
+ */
+function getSignatureBlob(signatureCellValue) {
+  if (!signatureCellValue || typeof signatureCellValue !== 'string') {
+    return null;
+  }
+  const trimmed = signatureCellValue.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (trimmed.startsWith('data:image')) {
+    return base64ToBlob(trimmed, 'firma-cliente.png');
+  }
+
+  const fileId = extractDriveFileId(trimmed);
+  if (!fileId) {
+    return null;
+  }
+  try {
+    return DriveApp.getFileById(fileId).getBlob();
+  } catch (error) {
+    console.error('No se pudo obtener la firma desde Drive:', error);
+    return null;
+  }
+}
+
+/**
+ * Obtiene la carpeta destino para las firmas, o el root del usuario si no se configuró.
+ */
+function getSignatureFolder() {
+  if (FOLDER_ID) {
+    try {
+      return DriveApp.getFolderById(FOLDER_ID);
+    } catch (error) {
+      console.warn('No se pudo acceder a la carpeta configurada. Se usa la carpeta raíz. Detalle:', error);
+    }
+  }
+  return DriveApp.getRootFolder();
+}
+
+/**
+ * Orquesta la generación del PDF y el envío del correo de notificación.
+ */
+function generatePdfAndSendEmail(options) {
+  try {
+    const formType = options.formType;
+    const normalizedData = options.normalizedData || {};
+    const rawPayload = options.rawPayload || {};
+    const registro = options.registro || Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'America/Bogota', 'yyyy-MM-dd HH:mm');
+
+    const internalRecipients = (INTERNAL_RECIPIENTS || [])
+      .map(email => (typeof email === 'string' ? email.trim() : ''))
+      .filter(isValidEmail);
+
+    const clientEmailCandidate = formType === 'ingreso'
+      ? (rawPayload.correo || rawPayload.clientEmail || '')
+      : (rawPayload.clientEmail || rawPayload.correo || '');
+    const clientEmail = isValidEmail(clientEmailCandidate) ? clientEmailCandidate.trim() : '';
+
+    if (!clientEmail && internalRecipients.length === 0) {
+      console.warn('No hay destinatarios válidos para enviar la notificación.');
+      return;
+    }
+
+    const clientSignatureBlob = options.clientSignatureBlob || getSignatureBlob(options.clientSignatureValue);
+    const responsibleSignatureBlob = options.responsibleSignatureBlob || getSignatureBlob(options.responsibleSignatureValue);
+
+    const pdfBlob = buildPdfFromTemplate({
+      formType,
+      normalizedData,
+      rawPayload,
+      registro,
+      clientSignatureBlob,
+      responsibleSignatureBlob
+    });
+
+    const plate = rawPayload.placa || rawPayload.vehiclePlate || 'sin placa';
+    const subject = `[8/7 Autos] Acta de ${formType === 'ingreso' ? 'Ingreso' : 'Entrega'} - ${plate}`;
+    const emailBodies = buildEmailBodiesForPdf(formType, rawPayload, plate, registro, !!pdfBlob);
+
+    let to = clientEmail;
+    let bccList = internalRecipients;
+    if (!clientEmail) {
+      to = internalRecipients[0];
+      bccList = internalRecipients.slice(1);
+    }
+
+    MailApp.sendEmail({
+      to,
+      subject,
+      name: EMAIL_SENDER_NAME,
+      htmlBody: emailBodies.html,
+      body: emailBodies.text,
+      bcc: bccList.length ? bccList.join(',') : undefined,
+      attachments: pdfBlob ? [pdfBlob] : undefined,
+      noReply: true
+    });
+  } catch (error) {
+    console.error('No se pudo generar el PDF o enviar el correo:', error);
+  }
+}
+
+/**
+ * Crea una copia de la plantilla, inserta datos y devuelve el PDF resultante.
+ */
+function buildPdfFromTemplate(options) {
+  const templateId = (DOC_TEMPLATE_IDS && (DOC_TEMPLATE_IDS[options.formType] || DOC_TEMPLATE_IDS.default)) || '';
+  if (!templateId) {
+    console.warn('No hay plantilla configurada para el tipo de formulario:', options.formType);
+    return null;
+  }
+
+  try {
+    const templateFile = DriveApp.getFileById(templateId);
+    const fileName = buildActaFileName(options.formType, options.rawPayload, options.registro);
+    const copy = templateFile.makeCopy(fileName + ' (editable)');
+    const docId = copy.getId();
+
+    const doc = DocumentApp.openById(docId);
+    const placeholders = buildTemplatePlaceholders(options.formType, options.normalizedData, options.rawPayload, options.registro);
+    applyTextPlaceholders(doc.getBody(), placeholders);
+    doc.saveAndClose();
+
+    insertSignatureInDoc(docId, options.clientSignatureBlob, CLIENT_SIGNATURE_PLACEHOLDER);
+    insertSignatureInDoc(docId, options.responsibleSignatureBlob, RESPONSIBLE_SIGNATURE_PLACEHOLDER);
+
+    const pdfBlob = copy.getAs(MimeType.PDF).setName(fileName + '.pdf');
+    copy.setTrashed(true);
+    return pdfBlob;
+  } catch (error) {
+    console.error('Error al construir el PDF:', error);
+    return null;
+  }
+}
+
+/**
+ * Inserta una firma en el documento copiando el Blob en la posición del marcador.
+ */
+function insertSignatureInDoc(docId, signatureBlob, placeholder) {
+  if (!signatureBlob) {
     return;
   }
 
-  const scriptTimezone = Session.getScriptTimeZone() || 'America/Bogota';
-  const registro = normalizedData.FECHA_REGISTRO instanceof Date
-    ? Utilities.formatDate(normalizedData.FECHA_REGISTRO, scriptTimezone, 'yyyy-MM-dd HH:mm')
-    : Utilities.formatDate(new Date(), scriptTimezone, 'yyyy-MM-dd HH:mm');
-
-  const plate = rawPayload.placa || rawPayload.vehiclePlate || 'sin placa';
-  const subject = `[8/7 Autos] Acta de ${formType === 'ingreso' ? 'Ingreso' : 'Entrega'} - ${plate}`;
-
-  const pdfInfo = generatePdfAttachment(formType, normalizedData, rawPayload, registro);
-  const emailBodies = buildEmailBodiesForPdf(formType, rawPayload, plate, registro, !!pdfInfo);
-
-  let to = clientEmail;
-  let bccList = internalRecipients;
-
-  if (!clientEmail) {
-    to = internalRecipients[0];
-    bccList = internalRecipients.slice(1);
+  const token = (placeholder || CLIENT_SIGNATURE_PLACEHOLDER).trim();
+  const normalizedToken = token.replace(/[{}]/g, '').trim();
+  if (!normalizedToken) {
+    return;
   }
 
-  MailApp.sendEmail({
-    to,
-    subject,
-    name: EMAIL_SENDER_NAME,
-    htmlBody: emailBodies.html,
-    body: emailBodies.text,
-    bcc: bccList.length ? bccList.join(',') : undefined,
-    attachments: pdfInfo ? [pdfInfo.blob] : undefined,
-    noReply: true
-  });
+  const searchPattern = `\\{\\{\\s*${escapeRegExp(normalizedToken)}\\s*\\}\\}`;
+
+  try {
+    const doc = DocumentApp.openById(docId);
+    const body = doc.getBody();
+    let range = body.findText(searchPattern);
+    let inserted = false;
+
+    while (range) {
+      const element = range.getElement();
+      if (element && element.getType() === DocumentApp.ElementType.TEXT) {
+        let insertedHere = false;
+        const text = element.asText();
+        const start = range.getStartOffset();
+        const end = range.getEndOffsetInclusive();
+        text.deleteText(start, end);
+
+        const parent = element.getParent();
+        const blob = signatureBlob.copyBlob();
+
+        if (parent) {
+          const elementIndex = parent.getChildIndex(element);
+          const parentType = parent.getType();
+
+          if (parentType === DocumentApp.ElementType.PARAGRAPH) {
+            parent.asParagraph().insertInlineImage(elementIndex + 1, blob);
+            insertedHere = true;
+          } else if (parentType === DocumentApp.ElementType.LIST_ITEM) {
+            parent.asListItem().insertInlineImage(elementIndex + 1, blob);
+            insertedHere = true;
+          } else if (parentType === DocumentApp.ElementType.TABLE_CELL) {
+            const paragraph = parent.asTableCell().insertParagraph(elementIndex + 1, '');
+            paragraph.insertInlineImage(0, blob);
+            insertedHere = true;
+          } else if (parentType === DocumentApp.ElementType.BODY_SECTION) {
+            parent.asBody().insertParagraph(elementIndex + 1, '').insertInlineImage(0, blob);
+            insertedHere = true;
+          }
+        }
+
+        if (!insertedHere) {
+          body.appendParagraph('').insertInlineImage(0, blob);
+          insertedHere = true;
+        }
+
+        inserted = inserted || insertedHere;
+      }
+
+      range = body.findText(searchPattern, range);
+    }
+
+    if (!inserted) {
+      body.appendParagraph('').insertInlineImage(0, signatureBlob.copyBlob());
+    }
+
+    doc.saveAndClose();
+  } catch (error) {
+    console.error('No se pudo insertar la firma en el documento:', error);
+  }
 }
 
+/**
+ * Genera los textos y HTML del correo según exista o no PDF.
+ */
 function buildEmailBodiesForPdf(formType, rawPayload, plate, registro, pdfGenerated) {
   const customerName =
     (formType === 'ingreso'
@@ -209,118 +547,15 @@ function buildEmailBodiesForPdf(formType, rawPayload, plate, registro, pdfGenera
   return { html, text };
 }
 
-function buildSummaryRows(rawPayload, formType, registro) {
-  const baseRows = [
-    ['Fecha de registro', registro],
-    ['Formulario', formType === 'ingreso' ? 'Acta de ingreso' : 'Acta de entrega']
-  ];
-
-  if (formType === 'ingreso') {
-    baseRows.push(
-      ['Propietario', rawPayload.propietario || ''],
-      ['Documento', rawPayload.documento || ''],
-      ['Teléfono', rawPayload.telefono || ''],
-      ['Correo', rawPayload.correo || ''],
-      ['Placa', rawPayload.placa || ''],
-      ['Marca', rawPayload.marca || ''],
-      ['Color', rawPayload.color || ''],
-      ['Kilometraje', rawPayload.km || ''],
-      ['Descripción / falla reportada', rawPayload.descripcionFalla || ''],
-      ['Objetos inventariados', resumenInventario(rawPayload)]
-    );
-  } else {
-    baseRows.push(
-      ['Cliente', rawPayload.clientName || rawPayload.propietario || ''],
-      ['Documento', rawPayload.clientId || ''],
-      ['Teléfono', rawPayload.clientPhone || ''],
-      ['Correo', rawPayload.clientEmail || rawPayload.correo || ''],
-      ['Placa', rawPayload.vehiclePlate || rawPayload.placa || ''],
-      ['Marca', rawPayload.vehicleMake || ''],
-      ['Línea', rawPayload.vehicleLine || ''],
-      ['Modelo', rawPayload.vehicleModel || ''],
-      ['Servicios realizados', rawPayload.selectedServices || ''],
-      ['Elementos entregados', rawPayload.selectedDeliveryItems || ''],
-      ['Condición de entrega', rawPayload.deliveryCondition || ''],
-      ['Observaciones', rawPayload.serviceObservations || '']
-    );
-  }
-
-  return baseRows.filter(row => row && (row[1] || '').toString().trim() !== '');
-}
-
-function buildHtmlBody(rows, formType) {
-  const intro = formType === 'ingreso'
-    ? 'Te compartimos el detalle del acta de ingreso registrada en 8/7 Autos:'
-    : 'Te compartimos el detalle del acta de entrega registrada en 8/7 Autos:';
-
-  const tableRows = rows.map(([label, value]) => {
-    const safeValue = value
-      .toString()
-      .replace(/\n/g, '<br>');
-    return `<tr><th align="left" style="padding:6px 8px;background:#f2f4ff;border-bottom:1px solid #d7def4;">${label}</th><td style="padding:6px 8px;border-bottom:1px solid #e4e8f7;">${safeValue}</td></tr>`;
-  }).join('');
-
-  return `
-    <div style="font-family:'Poppins',Arial,sans-serif;color:#273043;font-size:14px;">
-      <p>${intro}</p>
-      <table style="border-collapse:collapse;width:100%;max-width:640px;margin-top:12px;">
-        <tbody>
-          ${tableRows}
-        </tbody>
-      </table>
-      <p style="margin-top:16px;color:#808aa5;font-size:12px;">Este mensaje se genera de forma automática para efectos de trazabilidad.</p>
-    </div>
-  `;
-}
-
-function buildPlainBody(rows, formType) {
-  const intro = formType === 'ingreso'
-    ? 'Te compartimos el detalle del acta de ingreso registrada en 8/7 Autos:'
-    : 'Te compartimos el detalle del acta de entrega registrada en 8/7 Autos:';
-
-  const bodyLines = rows.map(([label, value]) => `${label}: ${value}`);
-  return [intro, '', ...bodyLines, '', 'Este mensaje se genera de forma automática para efectos de trazabilidad.'].join('\n');
-}
-
-function generatePdfAttachment(formType, normalizedData, rawPayload, registro) {
-  const templateId = (DOC_TEMPLATE_IDS && (DOC_TEMPLATE_IDS[formType] || DOC_TEMPLATE_IDS.default)) || '';
-  if (!templateId) {
-    console.warn('No hay plantilla de Google Docs configurada para ' + formType + '. Se omite la generación del PDF.');
-    return null;
-  }
-
-  try {
-    const templateFile = DriveApp.getFileById(templateId);
-    const fileName = buildActaFileName(formType, rawPayload, registro);
-
-    const editableCopy = templateFile.makeCopy(fileName + ' (editable)');
-    const doc = DocumentApp.openById(editableCopy.getId());
-    const templateData = buildTemplatePlaceholders(formType, normalizedData, rawPayload, registro);
-    const { placeholders, signatureBlobs } = templateData;
-    const body = doc.getBody();
-    applyTextPlaceholders(body, placeholders);
-    insertSignatureImages(body, signatureBlobs);
-    doc.saveAndClose();
-
-    const pdfBlob = editableCopy.getAs(MimeType.PDF).setName(fileName + '.pdf');
-    editableCopy.setTrashed(true);
-
-    return {
-      blob: pdfBlob,
-      fileName: pdfBlob.getName()
-    };
-  } catch (error) {
-    console.error('Error al generar el PDF para el formulario ' + formType + ': ' + error);
-    return null;
-  }
-}
-
+/**
+ * Construye el mapa de marcadores para renderizar la plantilla del acta.
+ */
 function buildTemplatePlaceholders(formType, normalizedData, rawPayload, registro) {
   const timezone = Session.getScriptTimeZone() || 'America/Bogota';
   const skipKeys = new Set(['FIRMA_CLIENTE', 'FIRMA_RESPONSABLE']);
   const placeholders = {};
 
-  Object.keys(normalizedData).forEach(key => {
+  Object.keys(normalizedData || {}).forEach(key => {
     if (skipKeys.has(key)) {
       return;
     }
@@ -336,29 +571,16 @@ function buildTemplatePlaceholders(formType, normalizedData, rawPayload, registr
   placeholders.NOTAS_DEL_DIAGRAMA = placeholders.DIAGRAMA || '';
   placeholders.DIAGRAMA_RESUMEN = placeholders.DIAGRAMA || '';
 
-  const signatureBlobs = {
-    signatureClientUrl: dataUrlToBlob(rawPayload.signatureClient, 'firma-cliente.png'),
-    signatureResponsibleUrl: dataUrlToBlob(rawPayload.signatureResponsible, 'firma-responsable.png')
-  };
-
-  const clientTokens = ['signatureClientUrl', 'signatureClient', 'firmaCliente', 'firmaClienteUrl'];
-  const responsibleTokens = ['signatureResponsibleUrl', 'signatureResponsible', 'firmaResponsable', 'firmaResponsableUrl'];
-
-  // If the raw payload included data URLs or URL tokens, keep their placeholder values
-  // so insertSignatureImages can find the placeholder and replace it with an inline image.
-  // Prefer explicit url fields if provided.
-  clientTokens.forEach(token => {
-    placeholders[token] = '';
-  });
-
-  responsibleTokens.forEach(token => {
-    placeholders[token] = '';
-  });
-
-  return { placeholders, signatureBlobs, clientTokens, responsibleTokens };
+  return placeholders;
 }
 
+/**
+ * Reemplaza los marcadores de texto {{TOKEN}} por los valores indicados.
+ */
 function applyTextPlaceholders(body, placeholders) {
+  if (!placeholders) {
+    return;
+  }
   Object.keys(placeholders).forEach(key => {
     const value = placeholders[key] == null ? '' : String(placeholders[key]);
     const variants = new Set([
@@ -367,160 +589,45 @@ function applyTextPlaceholders(body, placeholders) {
       key.replace(/_/g, ''),
       toLowerCamel(key)
     ]);
-
     variants.forEach(token => {
-      if (!token) return;
+      if (!token) {
+        return;
+      }
       const pattern = `\\{\\{\\s*${escapeRegExp(token)}\\s*\\}\\}`;
       body.replaceText(pattern, value);
     });
   });
 }
 
-function insertSignatureImages(body, signatureBlobs) {
-  if (!signatureBlobs) {
-    return;
-  }
-
-  const mappings = [
-    {
-      placeholders: ['signatureClientUrl', 'signatureClient', 'firmaCliente', 'firmaClienteUrl'],
-      blob: signatureBlobs.signatureClientUrl
-    },
-    {
-      placeholders: ['signatureResponsibleUrl', 'signatureResponsible', 'firmaResponsable', 'firmaResponsableUrl'],
-      blob: signatureBlobs.signatureResponsibleUrl
-    }
-  ];
-
-  mappings.forEach(({ placeholders, blob }) => {
-    placeholders.forEach(placeholder => {
-      const regex = `\\{\\{\\s*${escapeRegExp(placeholder)}\\s*\\}\\}`;
-      let range = body.findText(regex);
-      while (range) {
-        const element = range.getElement().asText();
-        const start = range.getStartOffset();
-        const end = range.getEndOffsetInclusive();
-        element.deleteText(start, end);
-        if (blob) {
-          element.insertInlineImage(start, blob.copyBlob());
-        }
-        range = body.findText(regex, range);
-      }
-    });
-  });
-}
-
-function dataUrlToBlob(dataUrl, defaultName) {
-  if (!dataUrl || typeof dataUrl !== 'string') {
-    return null;
-  }
-  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-  if (!match) {
-    return null;
-  }
-  const contentType = match[1];
-  const bytes = Utilities.base64Decode(match[2]);
-  return Utilities.newBlob(bytes, contentType, defaultName || 'archivo.bin');
-}
-
-function buildActaFileName(formType, rawPayload, registro) {
-  const basePlate = (rawPayload.placa || rawPayload.vehiclePlate || 'SIN_PLACA')
-    .toString()
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-Z0-9-]/g, '_');
-
-  const cleanTimestamp = registro.replace(/[^0-9]/g, '');
-  return `Acta-${formType === 'ingreso' ? 'Ingreso' : 'Entrega'}-${basePlate}-${cleanTimestamp}`;
-}
-
-function formatValueForTemplate(value, timezone) {
-  if (value == null) {
-    return '';
-  }
-
-  if (value instanceof Date) {
-    return Utilities.formatDate(value, timezone, 'yyyy-MM-dd HH:mm');
-  }
-
-  if (Array.isArray(value)) {
-    return value
-      .map(item => formatValueForTemplate(item, timezone))
-      .filter(Boolean)
-      .join(', ');
-  }
-
-  if (typeof value === 'object') {
-    try {
-      return JSON.stringify(value);
-    } catch (err) {
-      return String(value);
-    }
-  }
-
-  return String(value);
-}
-
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function toLowerCamel(value) {
-  if (!value) {
-    return '';
-  }
-  const lower = value.toLowerCase();
-  if (lower.indexOf('_') === -1) {
-    return lower;
-  }
-  return lower
-    .split('_')
-    .map((part, index) => {
-      if (index === 0) {
-        return part;
-      }
-      return part.charAt(0).toUpperCase() + part.slice(1);
-    })
-    .join('');
-}
-
-function resumenInventario(rawPayload) {
-  const keys = [
-    'tapaCombustible', 'stop', 'cenicero', 'encendedor', 'antena', 'espejos', 'boceles',
-    'manijas', 'vidrios', 'frenoEstacionamiento', 'aireAcondicionado', 'elevavidrios',
-    'exploradoras', 'pernoSeguridad', 'herramientas', 'gato', 'manuales', 'certificadoGases',
-    'tarjetaPropiedad', 'lucesInstrumentos', 'lucesInteriores', 'volante', 'golpe', 'rayado',
-    'abolladura', 'limpio', 'sucio', 'muySucio'
-  ];
-
-  const presentes = keys
-    .filter(key => rawPayload[key] && rawPayload[key].toString().toLowerCase() === 'sí')
-    .map(key => key.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase()));
-
-  return presentes.length ? presentes.join(', ') : 'Sin cambios registrados';
-}
-
-function isValidEmail(value) {
-  if (typeof value !== 'string') {
-    return false;
-  }
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return false;
-  }
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
-}
-
+/**
+ * Normaliza el payload del formulario a los encabezados esperados en Sheets.
+ */
 function normalizePayload(payload) {
-  const normalized = { FECHA_REGISTRO: new Date() };
+  const normalized = {};
 
-  Object.keys(payload).forEach(key => {
+  Object.keys(payload || {}).forEach(key => {
     if (key === 'timestamp') {
       return;
     }
 
+    const normalizedKey = normalizeSignatureKey(key);
+    if (CLIENT_SIGNATURE_ALIASES.set.has(normalizedKey)) {
+      const header = COLUMN_NAME_MAP.signatureClient || toCanonicalHeader('signatureClient');
+      if (header) {
+        normalized[header] = payload[key];
+      }
+      return;
+    }
+    if (RESPONSIBLE_SIGNATURE_ALIASES.set.has(normalizedKey)) {
+      const header = COLUMN_NAME_MAP.signatureResponsible || toCanonicalHeader('signatureResponsible');
+      if (header) {
+        normalized[header] = payload[key];
+      }
+      return;
+    }
+
     const header = COLUMN_NAME_MAP[key] || toCanonicalHeader(key);
-    if (header && header !== 'FECHA_REGISTRO') {
+    if (header) {
       let value = payload[key];
       if (header === 'DIAGRAMA') {
         value = formatDiagramNotes(value);
@@ -536,18 +643,15 @@ function normalizePayload(payload) {
   return normalized;
 }
 
-function prepareHeaders(sheet, normalizedData, formType) {
-  const hasHeaderRow = sheet.getLastRow() >= 1;
-  if (hasHeaderRow) {
-    const firstHeaderValue = sheet.getRange(1, 1).getValue();
-    if (firstHeaderValue && toCanonicalHeader(firstHeaderValue) !== 'FECHA_REGISTRO') {
-      sheet.insertColumnsBefore(1, 1);
-    }
-  }
-
+/**
+ * Asegura que los encabezados existan y estén en el orden correcto antes de insertar la fila.
+ */
+function prepareHeaders(sheet, normalizedData) {
+  const lastRow = sheet.getLastRow();
   const lastColumn = sheet.getLastColumn();
   let existingHeadersRaw = [];
-  if (sheet.getLastRow() >= 1 && lastColumn > 0) {
+
+  if (lastRow >= 1 && lastColumn > 0) {
     existingHeadersRaw = sheet.getRange(1, 1, 1, lastColumn).getValues()[0];
   }
 
@@ -561,7 +665,7 @@ function prepareHeaders(sheet, normalizedData, formType) {
     }
   });
 
-  Object.keys(normalizedData).forEach(header => {
+  Object.keys(normalizedData || {}).forEach(header => {
     if (header && header !== 'FECHA_REGISTRO') {
       headerOrder.set(header, true);
     }
@@ -599,6 +703,17 @@ function prepareHeaders(sheet, normalizedData, formType) {
   return ordered;
 }
 
+/**
+ * Devuelve (o crea) la pestaña correspondiente en el Spreadsheet.
+ */
+function getOrCreateSheet(spreadsheet, sheetName) {
+  const sheet = spreadsheet.getSheetByName(sheetName);
+  return sheet || spreadsheet.insertSheet(sheetName);
+}
+
+/**
+ * Convierte los valores del diagrama en un resumen legible.
+ */
 function formatDiagramNotes(raw) {
   if (!raw) {
     return '';
@@ -638,6 +753,130 @@ function formatDiagramNotes(raw) {
     .filter(Boolean);
 
   return formatted.join(' | ');
+}
+
+/**
+ * Construye el nombre del archivo PDF a generar.
+ */
+function buildActaFileName(formType, rawPayload, registro) {
+  const basePlate = (rawPayload.placa || rawPayload.vehiclePlate || 'SIN_PLACA')
+    .toString()
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9-]/g, '_');
+
+  const cleanTimestamp = (registro || '').replace(/[^0-9]/g, '');
+  return `Acta-${formType === 'ingreso' ? 'Ingreso' : 'Entrega'}-${basePlate}-${cleanTimestamp || Utilities.formatDate(new Date(), 'UTC', 'yyyyMMddHHmmss')}`;
+}
+
+/**
+ * Resume los elementos inventariados marcados como "sí".
+ */
+function resumenInventario(rawPayload) {
+  const keys = [
+    'tapaCombustible', 'stop', 'cenicero', 'encendedor', 'antena', 'espejos', 'boceles',
+    'manijas', 'vidrios', 'frenoEstacionamiento', 'aireAcondicionado', 'elevavidrios',
+    'exploradoras', 'pernoSeguridad', 'herramientas', 'gato', 'manuales', 'certificadoGases',
+    'tarjetaPropiedad', 'lucesInstrumentos', 'lucesInteriores', 'volante', 'golpe', 'rayado',
+    'abolladura', 'limpio', 'sucio', 'muySucio'
+  ];
+
+  const presentes = keys
+    .filter(key => rawPayload[key] && rawPayload[key].toString().toLowerCase() === 'sí')
+    .map(key => key.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase()));
+
+  return presentes.length ? presentes.join(', ') : 'Sin cambios registrados';
+}
+
+function formatValueForTemplate(value, timezone) {
+  if (value == null) {
+    return '';
+  }
+
+  if (value instanceof Date) {
+    return Utilities.formatDate(value, timezone, 'yyyy-MM-dd HH:mm');
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map(item => formatValueForTemplate(item, timezone))
+      .filter(Boolean)
+      .join(', ');
+  }
+
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value);
+    } catch (err) {
+      return String(value);
+    }
+  }
+
+  return String(value);
+}
+
+function extractDriveFileId(value) {
+  if (!value) {
+    return '';
+  }
+  const directIdPattern = /^[a-zA-Z0-9_-]{20,}$/;
+  if (directIdPattern.test(value)) {
+    return value;
+  }
+  const match = String(value).match(/[-\w]{25,}/);
+  return match ? match[0] : '';
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function toLowerCamel(value) {
+  if (!value) {
+    return '';
+  }
+  const lower = value.toLowerCase();
+  if (lower.indexOf('_') === -1) {
+    return lower;
+  }
+  return lower
+    .split('_')
+    .map((part, index) => {
+      if (index === 0) {
+        return part;
+      }
+      return part.charAt(0).toUpperCase() + part.slice(1);
+    })
+    .join('');
+}
+
+function normalizeSignatureKey(key) {
+  return (key || '').toString().toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function buildSignatureAliasData(rawKeys) {
+  const seen = new Set();
+  const ordered = [];
+  rawKeys.forEach(key => {
+    const normalized = normalizeSignatureKey(key);
+    if (!normalized || seen.has(normalized)) {
+      return;
+    }
+    seen.add(normalized);
+    ordered.push(normalized);
+  });
+  return { list: ordered, set: seen };
+}
+
+function isValidEmail(value) {
+  if (typeof value !== 'string') {
+    return false;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return false;
+  }
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
 }
 
 function toCanonicalHeader(value) {
