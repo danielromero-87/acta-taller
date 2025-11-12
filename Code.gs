@@ -18,8 +18,8 @@ const CLIENT_SIGNATURE_PLACEHOLDER = '{{firma del cliente}}';
 const RESPONSIBLE_SIGNATURE_PLACEHOLDER = '{{firma del responsable}}';
 
 const COLUMN_NAME_MAP = {
-  tipoFormulario: 'TIPO_FORMULARIO',
   fechaEntrega: 'FECHA_ENTREGA',
+  fechaIngreso: 'FECHA_INGRESO',
   fechaSalida: 'FECHA_SALIDA',
   ordenTrabajo: 'ORDEN_TRABAJO',
   propietario: 'PROPIETARIO',
@@ -28,6 +28,8 @@ const COLUMN_NAME_MAP = {
   correo: 'CORREO',
   placa: 'PLACA',
   marca: 'MARCA',
+  linea: 'LINEA',
+  modelo: 'MODELO',
   color: 'COLOR',
   km: 'KILOMETRAJE',
   seguroVence: 'SEGURO_VENCE',
@@ -59,6 +61,8 @@ const COLUMN_NAME_MAP = {
   lucesInstrumentos: 'LUCES_INSTRUMENTOS_PANTALLA',
   lucesInteriores: 'LUCES_INTERIORES',
   volante: 'VOLANTE',
+  sunroof: 'SUNROOF',
+  radio: 'RADIO',
   golpe: 'GOLPE',
   rayado: 'RAYADO',
   abolladura: 'ABOLLADURA',
@@ -72,19 +76,86 @@ const COLUMN_NAME_MAP = {
   clientAddress: 'DIRECCION_CLIENTE',
   clientPhone: 'TELEFONO_CLIENTE',
   clientEmail: 'CORREO_CLIENTE',
-  vehicleMake: 'MARCA_VEHICULO',
-  vehicleLine: 'LINEA_VEHICULO',
-  vehicleModel: 'MODELO_VEHICULO',
-  vehicleColor: 'COLOR_VEHICULO',
-  vehiclePlate: 'PLACA_VEHICULO',
-  vehicleKm: 'KILOMETRAJE_VEHICULO',
-  vehicleVin: 'VIN_VEHICULO',
-  vehicleEngineNum: 'NUMERO_MOTOR_VEHICULO',
+  vehicleMake: 'MARCA',
+  vehicleLine: 'LINEA',
+  vehicleModel: 'MODELO',
+  vehicleColor: 'COLOR',
+  vehiclePlate: 'PLACA',
+  vehicleKm: 'KILOMETRAJE',
   serviceObservations: 'OBSERVACIONES_SERVICIO',
   deliveryCondition: 'CONDICION_ENTREGA',
   selectedServices: 'SERVICIOS_REALIZADOS',
   selectedDeliveryItems: 'ELEMENTOS_ENTREGADOS'
 };
+
+const FIXED_HEADER_ORDER = [
+  'FECHA_INGRESO',
+  'FECHA_SALIDA',
+  'ORDEN_TRABAJO',
+  'PROPIETARIO',
+  'DOCUMENTO',
+  'TELEFONO',
+  'CORREO',
+  'PLACA',
+  'MARCA',
+  'LINEA',
+  'MODELO',
+  'COLOR',
+  'KILOMETRAJE',
+  'SEGURO_VENCE',
+  'TECNOMECANICA_VENCE',
+  'TAPA_COMBUSTIBLE',
+  'STOP',
+  'CENICERO',
+  'ENCENDEDOR',
+  'ANTENA',
+  'ESPEJOS',
+  'BOCELES',
+  'MANIJAS',
+  'VIDRIOS',
+  'FRENO_ESTACIONAMIENTO',
+  'AIRE_ACONDICIONADO',
+  'ELEVAVIDRIOS',
+  'EXPLORADORAS',
+  'PERNO_SEGURIDAD',
+  'HERRAMIENTAS',
+  'GATO',
+  'MANUALES',
+  'CERTIFICADO_GASES',
+  'TARJETA_PROPIEDAD',
+  'LUCES_INSTRUMENTOS_PANTALLA',
+  'LUCES_INTERIORES',
+  'VOLANTE',
+  'SUNROOF',
+  'RADIO',
+  'COMBUSTIBLE',
+  'LIMPIO',
+  'SUCIO',
+  'MUY_SUCIO',
+  'DIAGRAMA',
+  'DESCRIPCION_FALLA',
+  'FIRMA_CLIENTE',
+  'FIRMA_RESPONSABLE'
+];
+
+const HEADER_ALIASES = {
+  PLACA_VEHICULO: 'PLACA',
+  MARCA_VEHICULO: 'MARCA',
+  LINEA_VEHICULO: 'LINEA',
+  MODELO_VEHICULO: 'MODELO',
+  COLOR_VEHICULO: 'COLOR',
+  KILOMETRAJE_VEHICULO: 'KILOMETRAJE'
+};
+
+const DROPPED_PAYLOAD_KEYS = new Set([
+  'vehicleVin',
+  'vehicleEngineNum',
+  'vin',
+  'numeroMotor',
+  'vinVehiculo',
+  'numeroMotorVehiculo',
+  'tipoFormulario'
+]);
 
 const CANONICAL_HEADERS = (function() {
   const headers = Object.keys(COLUMN_NAME_MAP).map(key => COLUMN_NAME_MAP[key]);
@@ -609,6 +680,9 @@ function normalizePayload(payload) {
     if (key === 'timestamp') {
       return;
     }
+    if (DROPPED_PAYLOAD_KEYS.has(key)) {
+      return;
+    }
 
     const normalizedKey = normalizeSignatureKey(key);
     if (CLIENT_SIGNATURE_ALIASES.set.has(normalizedKey)) {
@@ -635,10 +709,6 @@ function normalizePayload(payload) {
       normalized[header] = value;
     }
   });
-
-  if (!normalized.TIPO_FORMULARIO && typeof payload.tipoFormulario === 'string') {
-    normalized.TIPO_FORMULARIO = payload.tipoFormulario;
-  }
 
   return normalized;
 }
@@ -673,9 +743,15 @@ function prepareHeaders(sheet, normalizedData) {
 
   const finalHeaders = Array.from(headerOrder.keys());
   const specialAfter = ['DIAGRAMA', 'DESCRIPCION_FALLA', 'FIRMA_CLIENTE', 'FIRMA_RESPONSABLE'];
-
-  const filtered = finalHeaders.filter(header => header !== 'FECHA_REGISTRO' && !specialAfter.includes(header));
   const ordered = ['FECHA_REGISTRO'];
+
+  FIXED_HEADER_ORDER.forEach(header => {
+    if (header && header !== 'FECHA_REGISTRO' && headerOrder.has(header) && !ordered.includes(header)) {
+      ordered.push(header);
+    }
+  });
+
+  const filtered = finalHeaders.filter(header => header !== 'FECHA_REGISTRO' && !ordered.includes(header) && !specialAfter.includes(header));
   let insertedAfter = false;
 
   filtered.forEach(header => {
@@ -906,6 +982,14 @@ function toCanonicalHeader(value) {
     .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
     .replace(/\s+/g, '_')
     .toUpperCase();
+
+  if (normalized === 'VIN_VEHICULO' || normalized === 'NUMERO_MOTOR_VEHICULO') {
+    return '';
+  }
+
+  if (HEADER_ALIASES[normalized]) {
+    return HEADER_ALIASES[normalized];
+  }
 
   if (normalized === 'TIMESTAMP') {
     return 'FECHA_REGISTRO';
